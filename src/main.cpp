@@ -6,32 +6,19 @@
 #include "Eigen/Dense"
 #include <string>
 #include <time.h>
+#include "cpuVersion/rayTracer.h"
 
 static void error_callback(int error, const char *description)
 {
     fprintf(stderr, "Error: %s\n", description);
 }
 
-
-void flick(unsigned char* data, unsigned int size) {
-    unsigned char r = rand() % 256;
-    unsigned char g = rand() % 256;
-    unsigned char b = rand() % 256;
-
-    for (unsigned int index = 0; index < size; index += 3)
-    {
-        data[index] = (unsigned char)(r);
-        data[index + 1] = (unsigned char)(g);
-        data[index + 2] = (unsigned char)(b);
-    }
-}
-
 int main()
 {
     srand(time(NULL));
 
-    unsigned int width = 800;
-    unsigned int height = 800;
+    unsigned int width = 960;
+    unsigned int height = 540;
     unsigned int channels = 3;
 
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
@@ -56,13 +43,8 @@ int main()
     glDepthFunc(GL_LESS);
 
     unsigned int size = width * height * channels;
-    unsigned char *data = new unsigned char[size];
-    for (unsigned int index = 0; index < size; index += 3)
-    {
-        data[index] = (unsigned char)(255);
-        data[index + 1] = (unsigned char)(0);
-        data[index + 2] = (unsigned char)(0);
-    }
+    float *data = new float[size];
+    Camera camera(data, width, height);
 
     GLuint textureId;
     glGenTextures(1, &textureId);
@@ -73,7 +55,7 @@ int main()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_GENERATE_MIPMAP, GL_TRUE); // automatic mipmap
 
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_FLOAT, data);
 
     // create a renderbuffer object to store depth info
     GLuint rboId;
@@ -114,16 +96,16 @@ int main()
                       GL_LINEAR);                  // scale filter
 
     glfwSwapBuffers(window);
+    camera.render();
     while (!glfwWindowShouldClose(window))
     {
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_FLOAT, data);
         glBlitFramebuffer(0, 0, width, height,         // src rect
                       0, 0, width, height,         // dst rect
                       GL_COLOR_BUFFER_BIT,         // buffer mask
                       GL_LINEAR);                  // scale filter
                 
         glfwPollEvents();
-        flick(data, size);
         glfwSwapBuffers(window);
     }
     return 0;

@@ -4,11 +4,16 @@ project(rayCasting)
 set(CMAKE_CXX_STANDARD 14)
 
 file(GLOB source_files
-        "src/*.h"
-        "src/*.cpp"
+        "src/*"
+        "src/cpuVersion/*.cpp"
+        "src/cpuVersion/*.h"
 )
 
-file(GLOB source_files "src/*.cpp")
+file(GLOB header_files
+        "src/*.h"
+        "src/cpuVersion/*.h"
+)
+
 file(GLOB imgui_cpp "external/imgui/*.cpp")
 
 add_executable(
@@ -26,6 +31,8 @@ target_include_directories(${PROJECT_NAME} PUBLIC
         external/stb_image
         external/imgui
         src/
+        src/cpuVersion
         )
+
 target_link_directories( ${PROJECT_NAME} PRIVATE external/glfw/src)
 target_link_libraries(${PROJECT_NAME} glfw)

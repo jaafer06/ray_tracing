@@ -1,3 +1,2 @@
 cd build
-make
-./rayCasting.exe
+make && ./rayCasting.exe
