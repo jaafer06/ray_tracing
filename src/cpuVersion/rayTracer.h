@@ -47,11 +47,10 @@ public:
         right = Vector3f(1, 0, 0);
         this->buffer = static_cast<Color*>(buffer);
 
-        worldWidth = width * 1 / sqrt(width * height);
-        worldHeight = height * 1 / sqrt(width * height);
+        worldWidth = width *  ( 1 / sqrt(width * height));
+        worldHeight = height * ( 1 / sqrt(width * height));
         upper_left = { -worldWidth / 2, worldHeight / 2, -1 };
-        du = worldWidth / (width - 1);
-        dv = worldHeight / (height - 1);
+        worldStep = worldWidth / width;
 
         scene.addSphere({ 0, 0, -4 }, 0.5);
         //scene.addSphere({ 2, 0, -3 }, 0.5);
@@ -64,48 +63,39 @@ public:
     }
 
     void render() { 
-        
+
         auto p = [this](Color& pixel) {
             int index = &pixel - buffer;
             int i = index % width;
             int j = index / width;
-            //vector3f pixelWorldSpace = upper_left + (du * i + du / 2) * right - (dv * j + dv / 2) * up;
-            //todo
-            Vector3f pixelWorldSpace = upper_left + du * i  * right - dv * j * up;
-
-            //Ray ray(pixelWorldSpace, pixelWorldSpace - position);
-            //Vector3f pixel_color = ray_color(ray, 10);
-
-            constexpr unsigned int size = 5*5;
-            Matrix<float, size, 3, RowMajor> pixels = grid<5, 5>();
-            pixels.block<size, 1>(0, 0) *= du;
-            pixels.block<size, 1>(0, 1) *= dv;
-            pixels.rowwise() += pixelWorldSpace.transpose();
-            
-            Matrix<float, size, 3> pixel_colors;
-            Vector3f* start = static_cast<Vector3f*>((void*)pixels.data());
-            Vector3f* end = start + size;
-            auto p = [&pixel_colors, this, start](Vector3f& pixelPosition) {
-                unsigned int index = &pixelPosition - start;
-                Ray ray(pixelPosition, pixelPosition - position);
-                pixel_colors.row(index) = ray_color(ray, 10);
-            };
-
-            std::for_each(std::execution::par, start, end, p);
-            buffer[(height - 1 - j) * width + i] = pixel_colors.colwise().mean();
+            Vector3f pixelWorldSpace = upper_left + worldStep * i * right - worldStep * j * up;
+        
+            renderPixel<10>(pixelWorldSpace, (height - 1 - j) * width + i);
         };
 
-        std::for_each(std::execution::par, buffer, buffer+width*height-1, p);
-
-         //for (int j = 0; j < height; ++j) {
-         //    for (int i = 0; i < width; ++i) {
-         //        Vector3f pixelWorldSpace = upper_left + (du * i + du/2) * right - (dv * j + dv/2) * up ;
-         //        Ray r(position, pixelWorldSpace - position);
-         //        Vector3f pixel_color = ray_color(r, 5);
-         //        buffer[(height-1-j)*width+i] = pixel_color;
-         //    }
-         //}
+        std::for_each(std::execution::par_unseq, buffer, buffer+width*height-1, p);
         light += Vector3f(0, 0, -0.01);
+    }
+
+    template<unsigned int N>
+    void renderPixel(Vector3f& pixelWorldSpace, unsigned int pixelIndex, unsigned int steps = 10) {
+
+        float stepSize = worldStep / (float)(N + 1);
+        constexpr unsigned int totalRays = N * N;
+        Vector3f pixelColor{ 0, 0, 0 };
+        Vector3f currentPosition = pixelWorldSpace;
+        for (unsigned int i = 1; i < N; ++i) {
+            currentPosition(1) = pixelWorldSpace(1) + stepSize * i;
+            currentPosition(0) = pixelWorldSpace(0);
+            for (unsigned int j = 1; j < N; ++j) {
+                currentPosition(0) += stepSize * j;
+                Ray ray(currentPosition, currentPosition - position);
+                pixelColor += ray_color(ray, steps);
+            }
+        }
+
+        buffer[pixelIndex] = (pixelColor / totalRays).array().sqrt();
+
     }
 
     Vector3f ray_color(const Ray& r, int depth) {
@@ -116,12 +106,8 @@ public:
         }
 
         if (scene.hit(r, 0.1, std::numeric_limits<float>::max(), hitRecord)) {
-            //Vector3f surfaceToLight = (light - hitRecord.p).normalized();
-            //float intensity = surfaceToLight.dot(hitRecord.normal);
-            //return  0.7 * (Vector3f(1, 0, 0) * std::max(intensity, 0.f)) + 0.3 * Vector3f(1, 0, 0);
-            //Vector3f target = hitRecord.p + hitRecord.normal + randomVector();
-            Vector3f target = hitRecord.p + hitRecord.normal + randomVector();
-            return 0.5 * ray_color(Ray(hitRecord.p, target - hitRecord.p), depth - 1);
+            Vector3f target = hitRecord.normal + randomVector();
+            return 0.5 * ray_color(Ray(hitRecord.p, target), depth - 1);
         }
 
         Vector3f unit_direction = r.direction();
@@ -143,8 +129,8 @@ private:
     unsigned int height;
     float worldWidth;
     float worldHeight;
+    float worldStep;
     Vector3f upper_left;
-    float du, dv;
     Color* buffer;
     Scene scene;
     std::random_device rd;  // Will be used to obtain a seed for the random number engine
