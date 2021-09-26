@@ -1,7 +1,9 @@
 cmake_minimum_required(VERSION 3.6)
 
 project(rayCasting)
-set(CMAKE_CXX_STANDARD 14)
+
+set(CMAKE_CXX_STANDARD 17)
+SET(CMAKE_CXX_FLAGS "-std=c++17")
 
 file(GLOB source_files
         "src/*"
