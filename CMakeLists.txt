@@ -6,9 +6,7 @@ set(CMAKE_CXX_STANDARD 17)
 SET(CMAKE_CXX_FLAGS "-std=c++17")
 
 file(GLOB source_files
-        "src/*"
-        "src/cpuVersion/*.cpp"
-        "src/cpuVersion/*.h"
+        "src/main.cpp"
 )
 
 file(GLOB header_files
@@ -23,6 +21,8 @@ add_executable(
         ${source_files}
         external/glfw/deps/glad_gl.c
         ${imgui_cpp}
+        ${header_files}
+
         )
 add_subdirectory(external/glfw)
 target_include_directories(${PROJECT_NAME} PUBLIC 
@@ -33,7 +33,6 @@ target_include_directories(${PROJECT_NAME} PUBLIC
         external/stb_image
         external/imgui
         src/
-        src/cpuVersion
         )
 
 target_link_directories( ${PROJECT_NAME} PRIVATE external/glfw/src)

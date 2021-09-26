@@ -5,19 +5,38 @@
 #include <iostream>
 #include "Eigen/Dense"
 #include <string>
-#include <time.h>
 #include "cpuVersion/rayTracer.h"
 #include <chrono>
+#include <random>
 
 static void error_callback(int error, const char *description)
 {
     fprintf(stderr, "Error: %s\n", description);
 }
 
+template<typename T, unsigned int n, unsigned m>
+std::istream& operator>>(std::istream& in, Matrix<T, n, m>& other)
+{
+    for (unsigned int i = 0; i < other.rows(); i++)
+        for (unsigned int j = 0; j < other.cols(); j++)
+            in >> other(i, j);
+    return in;
+}
+
 int main()
 {
-    srand(time(NULL));
 
+    /*auto m = grid<3, 3>();
+    std::cout << m.colwise().mean() << std::endl;*/
+    //std::for_each(std::execution::par, 0, 10, [](int i) {std::cout << "i" << std::endl; });
+
+    //std::cout << m << std::endl;
+    //std::cout << "--------------" << std::endl;
+
+    //m.block<9, 1>(0, 0) *= 5;
+    //m.block<9, 1>(0, 1) *= 10;
+
+    //std::cout << m << std::endl;
     unsigned int width = 960;
     unsigned int height = 540;
     unsigned int channels = 3;
@@ -118,12 +137,11 @@ int main()
 
     /* Getting number of milliseconds as an integer. */
         auto ms_int = duration_cast<milliseconds>(t2 - t1);
-
+        
         /* Getting number of milliseconds as a double. */
         duration<double, std::milli> ms_double = t2 - t1;
 
-        std::cout << ms_int.count() << "ms\n";
-        std::cout << ms_double.count() << "ms";
+        std::cout << ms_double.count() << "ms" << std::endl;
 
         glfwPollEvents();
         glfwSwapBuffers(window);
