@@ -35,25 +35,25 @@ public:
 class Sphere {
 public:
     Sphere(Vector3f center, float radius) : center(center), radius(radius) {}
-    bool hit(const Ray& r, HitRecord& rec) const {
+    inline bool hit(const Ray& r, HitRecord& rec) const {
         Vector3f oc = r.origin() - center;
-        float a = r.direction().dot(r.direction());
-        float b = 2.0 * oc.dot(r.direction());
+        float b = oc.dot(r.direction());
         float c = oc.dot(oc) - radius * radius;
-        float discriminant = b * b - 4 * a * c;
+        float discriminant = b * b - c;
         if (discriminant < 0) {
             return false;
-        }
-        else {
-            rec.t = (-b - sqrt(b * b - 4 * a * c)) / 2 * a;
+        } else {
+            rec.t = -b - sqrt(discriminant);
             rec.p = r.at(rec.t);
             rec.normal = normalAt(rec.p);
             return true;
         }
     };
-    Vector3f normalAt(Vector3f& point) const {
+
+    inline Vector3f normalAt(Vector3f& point) const {
         return (point - center).normalized();
     }
+
 private:
     Vector3f center;
     float radius;

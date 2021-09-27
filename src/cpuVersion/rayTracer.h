@@ -1,11 +1,16 @@
 #pragma once
 #include "Eigen/Dense"
+#include "Eigen/Geometry" 
+#include <time.h>
+#include <stdlib.h>
 #include <execution>
 #include <algorithm>
 #include <execution>
 #include "cpuVersion/scene.h"
 #include <random>
 #include <atomic>
+
+# define pi 3.14159265358979323846
 
 using namespace Eigen;
 
@@ -41,6 +46,8 @@ class Camera {
 public:
 
     Camera(void* buffer, unsigned int width, unsigned int height) : width(width), height(height) {
+        srand((unsigned)time(NULL));
+
         position = Vector3f(0, 0, 0);
         focalLength = 1;
         up = Vector3f(0, 1, 0);
@@ -54,11 +61,12 @@ public:
 
         scene.addSphere({ 0, 0, -4 }, 0.5);
         //scene.addSphere({ 2, 0, -3 }, 0.5);
-        scene.addSphere({0, -100, -40}, 100);
+        scene.addSphere({0, -94, -40}, 100);
 
 
         gen = std::mt19937(rd()); // Standard mersenne_twister_engine seeded with rd()
-        d = std::normal_distribution<>{ 0, 1 };
+        normalDistribution = std::normal_distribution<float>{ 0, 1 };
+        uniformDistribution = std::uniform_real_distribution<float>{ 0,  pi};
 
     }
 
@@ -94,7 +102,7 @@ public:
             }
         }
 
-        buffer[pixelIndex] = (pixelColor / totalRays).array().sqrt();
+        buffer[pixelIndex] = (pixelColor / totalRays).array();
 
     }
 
@@ -117,7 +125,14 @@ public:
 
 
     inline Vector3f randomVector() {
-        return Vector3f{ float(d(gen)), float(d(gen)), float(d(gen)) }.normalized();
+        float  teta = ((float)rand() / RAND_MAX) * pi;
+        float phi = ((float)rand() / RAND_MAX)*pi;
+
+        // speed boost
+        //float teta = uniformDistribution(gen) * pi;
+        //float phi = uniformDistribution(gen) * pi;
+        return  Vector3f{ sin(teta) * cos(phi), sin(teta) * sin(phi), cos(phi) };
+        //return Vector3f{ normalDistribution(gen), normalDistribution(gen), normalDistribution(gen) }.normalized();
     }
 
 private:
@@ -135,7 +150,7 @@ private:
     Scene scene;
     std::random_device rd;  // Will be used to obtain a seed for the random number engine
     std::mt19937 gen; // Standard mersenne_twister_engine seeded with rd()
-    std::normal_distribution<> d;
-    
+    std::normal_distribution<float> normalDistribution;
+    std::uniform_real_distribution<float> uniformDistribution;
 
 };

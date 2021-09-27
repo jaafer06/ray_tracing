@@ -48,7 +48,7 @@ int main()
     if (!glfwInit())
         exit(EXIT_FAILURE);
     // glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    GLFWwindow *window = glfwCreateWindow(width, height, "Simple example", NULL, NULL);
+    GLFWwindow *window = glfwCreateWindow(width, height, "Ray tracing", NULL, NULL);
     if (!window)
     {
         glfwTerminate();
