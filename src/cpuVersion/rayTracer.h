@@ -16,19 +16,6 @@ using namespace Eigen;
 
 static Vector3f light(1, 1, 1);
 
-template<unsigned int N, unsigned int M>
-Matrix<float, N* M, 3> grid() {
-    Matrix<float, N* M, 3, RowMajor> result;
-    float stepSizeX = 1 / (float)(M - 1);
-    float stepSizey = 1 / (float)(N - 1);
-
-    for (unsigned int i = 0; i < N; ++i) {
-        for (unsigned int j = 0; j < M; ++j) {
-            result.row(i*N + j) = Vector3f{ j * stepSizeX, i * stepSizey, 0 };
-        }
-    }
-    return result;
-}
 
 struct Color {
     float r;
@@ -48,7 +35,7 @@ public:
     Camera(void* buffer, unsigned int width, unsigned int height) : width(width), height(height) {
         srand((unsigned)time(NULL));
 
-        position = Vector3f(0, 0, 0);
+        position = Vector3f(0, 0, 6);
         focalLength = 1;
         up = Vector3f(0, 1, 0);
         right = Vector3f(1, 0, 0);
@@ -56,15 +43,17 @@ public:
 
         worldWidth = width *  ( 1 / sqrt(width * height));
         worldHeight = height * ( 1 / sqrt(width * height));
-        upper_left = { -worldWidth / 2, worldHeight / 2, -1 };
+        upper_left = Vector3f{ -worldWidth / 2, worldHeight / 2, -focalLength} + position;
         worldStep = worldWidth / width;
 
         scene.addSphere({ 0, 0, -4 }, 0.5);
-        //scene.addSphere({ 2, 0, -3 }, 0.5);
+        scene.addSphere({ 1.5, 0, -3 }, 0.5);
         scene.addSphere({0, -94, -40}, 100);
 
+        scene.addCube({ 1, 1.5, -2 });
+        //scene.addSphere({ 1, 1, -3 }, 0.5);
 
-        gen = std::mt19937(rd()); // Standard mersenne_twister_engine seeded with rd()
+        gen = std::mt19937(rd());
         normalDistribution = std::normal_distribution<float>{ 0, 1 };
         uniformDistribution = std::uniform_real_distribution<float>{ 0,  pi};
 
@@ -78,11 +67,13 @@ public:
             int j = index / width;
             Vector3f pixelWorldSpace = upper_left + worldStep * i * right - worldStep * j * up;
         
-            renderPixel<10>(pixelWorldSpace, (height - 1 - j) * width + i);
+            renderPixel<2>(pixelWorldSpace, (height - 1 - j) * width + i);
         };
 
         std::for_each(std::execution::par_unseq, buffer, buffer+width*height-1, p);
-        light += Vector3f(0, 0, -0.01);
+        scene.cubes[0].rotate(0.1);
+        //light += Vector3f(0, 0, -0.01);
+        //upper_left += Vector3f{0, 0, -0.01};
     }
 
     template<unsigned int N>
@@ -92,11 +83,10 @@ public:
         constexpr unsigned int totalRays = N * N;
         Vector3f pixelColor{ 0, 0, 0 };
         Vector3f currentPosition = pixelWorldSpace;
-        for (unsigned int i = 1; i < N; ++i) {
-            currentPosition(1) = pixelWorldSpace(1) + stepSize * i;
-            currentPosition(0) = pixelWorldSpace(0);
-            for (unsigned int j = 1; j < N; ++j) {
-                currentPosition(0) += stepSize * j;
+        for (unsigned int i = 0; i < N; ++i) {
+            currentPosition = pixelWorldSpace - up * stepSize * i;
+            for (unsigned int j = 0; j < N; ++j) {
+                currentPosition += right * stepSize * j;
                 Ray ray(currentPosition, currentPosition - position);
                 pixelColor += ray_color(ray, steps);
             }
@@ -148,8 +138,8 @@ private:
     Vector3f upper_left;
     Color* buffer;
     Scene scene;
-    std::random_device rd;  // Will be used to obtain a seed for the random number engine
-    std::mt19937 gen; // Standard mersenne_twister_engine seeded with rd()
+    std::random_device rd;
+    std::mt19937 gen;
     std::normal_distribution<float> normalDistribution;
     std::uniform_real_distribution<float> uniformDistribution;
 
