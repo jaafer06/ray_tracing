@@ -2,11 +2,7 @@
 #include <vector>
 #include <limits>
 #include "Eigen/Dense"
-
-#ifndef pi
-# define pi 3.14159265358979323846
-#endif 
-
+#include "utils.h"
 
 using namespace Eigen;
 

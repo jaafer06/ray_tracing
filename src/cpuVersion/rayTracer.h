@@ -9,8 +9,7 @@
 #include "cpuVersion/scene.h"
 #include <random>
 #include <atomic>
-
-# define pi 3.14159265358979323846
+#include "utils.h"
 
 using namespace Eigen;
 
@@ -104,27 +103,13 @@ public:
         }
 
         if (scene.hit(r, 0.1, std::numeric_limits<float>::max(), hitRecord)) {
-            Vector3f random = randomVector();
-            Vector3f target = hitRecord.normal + (hitRecord.normal.dot(random) > 0 ? random : -random);
-            return 0.4 * ray_color(Ray(hitRecord.p, target), depth - 1);
+            return 0.4 * ray_color(Ray(hitRecord.p, randomVector(hitRecord.normal)), depth - 1);
         }
 
         Vector3f unit_direction = r.direction();
         float t = 0.5 * (unit_direction[1] + 1.);
         return (1.0 - t) * Vector3f(1.0, 1.0, 1.0) + t * Vector3f(0.5, 0.7, 1.0);
     };
-
-
-    inline Vector3f randomVector() {
-        float  teta = ((float)rand() / RAND_MAX) * pi;
-        float phi = ((float)rand() / RAND_MAX)*pi;
-
-        // speed boost
-        //float teta = uniformDistribution(gen) * pi;
-        //float phi = uniformDistribution(gen) * pi;
-        return  Vector3f{ sin(teta) * cos(phi), sin(teta) * sin(phi), cos(phi) };
-        //return Vector3f{ normalDistribution(gen), normalDistribution(gen), normalDistribution(gen) }.normalized();
-    }
 
 private:
     Vector3f position;
