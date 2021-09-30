@@ -10,6 +10,11 @@
 
 using namespace Eigen;
 
+namespace Materials {
+    
+}
+
+
 struct HitRecord {
     Vector3f p;
     Vector3f normal;

@@ -92,7 +92,7 @@ public:
             }
         }
 
-        buffer[pixelIndex] = (pixelColor / totalRays).array();
+        buffer[pixelIndex] = (pixelColor / totalRays).cwiseSqrt();
 
     }
 
@@ -104,8 +104,9 @@ public:
         }
 
         if (scene.hit(r, 0.1, std::numeric_limits<float>::max(), hitRecord)) {
-            Vector3f target = hitRecord.normal + randomVector();
-            return 0.5 * ray_color(Ray(hitRecord.p, target), depth - 1);
+            Vector3f random = randomVector();
+            Vector3f target = hitRecord.normal + (hitRecord.normal.dot(random) > 0 ? random : -random);
+            return 0.4 * ray_color(Ray(hitRecord.p, target), depth - 1);
         }
 
         Vector3f unit_direction = r.direction();
