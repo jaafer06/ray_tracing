@@ -34,7 +34,7 @@ public:
     Camera(void* buffer, unsigned int width, unsigned int height) : width(width), height(height) {
         srand((unsigned)time(NULL));
 
-        position = Vector3f(0, 0, 6);
+        position = Vector3f(1, 0, 6);
         focalLength = 1;
         up = Vector3f(0, 1, 0);
         right = Vector3f(1, 0, 0);
@@ -45,12 +45,16 @@ public:
         upper_left = Vector3f{ -worldWidth / 2, worldHeight / 2, -focalLength} + position;
         worldStep = worldWidth / width;
 
-        scene.addSphere({ 0, 0, -4 }, 0.5);
-        scene.addSphere({ 1.5, 0, -3 }, 0.5);
-        scene.addSphere({0, -94, -40}, 100);
+        scene.addSphere({ 0, 0, -4 }, 0.5, new Lambertian({0.8, 0.8, 0}));
+        scene.addSphere({ 1.5, 0, -3 }, 0.5, new Lambertian({0.5, 0, 0}));
+        scene.addSphere({ 0, -94, -40 }, 100, new Lambertian({1, 1, 1}));
 
-        scene.addCube({ 1, 1.5, -2 });
-        //scene.addSphere({ 1, 1, -3 }, 0.5);
+        scene.addCube({ 1, 1.5, -2 }, new LightSource({1, 1, 1}));
+        //scene.addCube({ 1, 1.5, -2 }, new Lambertian({ 0.8, 0, 0.8 }));
+
+        scene.addSphere({ 4.5, 1, -3 }, 1, new Metal({ 0.8, 0.5, 1 }));
+        //scene.addSphere({ 4.5, 1, -3 }, 1, new Lambertian({ 0.8, 0.5, 1 }));
+
 
         gen = std::mt19937(rd());
         normalDistribution = std::normal_distribution<float>{ 0, 1 };
@@ -65,8 +69,7 @@ public:
             int i = index % width;
             int j = index / width;
             Vector3f pixelWorldSpace = upper_left + worldStep * i * right - worldStep * j * up;
-        
-            renderPixel<2>(pixelWorldSpace, (height - 1 - j) * width + i);
+            renderPixel<15>(pixelWorldSpace, (height - 1 - j) * width + i);
         };
 
         std::for_each(std::execution::par_unseq, buffer, buffer+width*height-1, p);
@@ -91,7 +94,8 @@ public:
             }
         }
 
-        buffer[pixelIndex] = (pixelColor / totalRays).cwiseSqrt();
+        buffer[pixelIndex] = (static_cast<Vector3f>(pixelColor / totalRays)).cwiseSqrt();
+        //buffer[pixelIndex] = clamp(static_cast<Vector3f>(pixelColor / totalRays), 0.f, 1.f).cwiseSqrt();
 
     }
 
@@ -103,12 +107,21 @@ public:
         }
 
         if (scene.hit(r, 0.1, std::numeric_limits<float>::max(), hitRecord)) {
-            return 0.4 * ray_color(Ray(hitRecord.p, randomVector(hitRecord.normal)), depth - 1);
+            Ray scattered;
+            Vector3f attenuation;
+            if (hitRecord.material->scatter(r, hitRecord, attenuation, scattered)) {
+                return attenuation.cwiseProduct(ray_color(scattered, depth - 1));
+
+            } else {
+                return  hitRecord.material->emit();
+
+            }
         }
 
-        Vector3f unit_direction = r.direction();
-        float t = 0.5 * (unit_direction[1] + 1.);
-        return (1.0 - t) * Vector3f(1.0, 1.0, 1.0) + t * Vector3f(0.5, 0.7, 1.0);
+        //Vector3f unit_direction = r.direction();
+        //float t = 0.5 * (unit_direction[1] + 1.);
+        //return (1.0 - t) * Vector3f(1.0, 1.0, 1.0) + t * Vector3f(0.5, 0.7, 1.0);
+        return { 0.1, 0.1, 0.1 };
     };
 
 private:

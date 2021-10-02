@@ -6,17 +6,7 @@
 
 using namespace Eigen;
 
-namespace Materials {
-    
-}
-
-
-struct HitRecord {
-    Vector3f p;
-    Vector3f normal;
-    double t;
-};
-
+class Material;
 
 class Ray {
 public:
@@ -38,9 +28,89 @@ public:
 };
 
 
+struct HitRecord {
+    Vector3f p;
+    Vector3f normal;
+    double t;
+    Material* material;
+};
+
+class Material {
+public:
+    virtual bool scatter(
+        const Ray& rayIn, const HitRecord& hitRecord, Vector3f& attenuation, Ray& scattered
+    ) const = 0;
+    virtual Vector3f emit() const = 0;
+};
+
+class Lambertian : public Material {
+public:
+    Lambertian(const Vector3f& a) : albedo(a) {}
+
+    virtual bool scatter(
+        const Ray& rayIn, const HitRecord& hitRecord, Vector3f& attenuation, Ray& scattered
+    )  const override {
+        auto scatter_direction = randomVector(hitRecord.normal);
+        scattered = Ray(hitRecord.p, scatter_direction);
+        attenuation = 0.6*albedo;
+        return true;
+    };
+
+    virtual Vector3f emit() const override {
+        return { 0, 0, 0 };
+    }
+
+public:
+    Vector3f albedo;
+};
+
+
+
+class Metal: public Material {
+public:
+    Metal(const Vector3f& a) : albedo(a) {}
+
+    virtual bool scatter(
+        const Ray& rayIn, const HitRecord& hitRecord, Vector3f& attenuation, Ray& scattered
+    )  const override {
+        Vector3f reflected = reflect(rayIn.direction(), hitRecord.normal);
+        scattered.orig = hitRecord.p;
+        scattered.dir = reflected;
+        attenuation = albedo;
+        return (scattered.dir.dot(hitRecord.normal)  > 0);
+    };
+
+    virtual Vector3f emit() const override {
+        return { 0, 0, 0 };
+    }
+
+public:
+    Vector3f albedo;
+};
+
+
+class LightSource: public Material {
+public:
+    LightSource(const Vector3f& lightColor) : lightColor(lightColor) {}
+
+    virtual bool scatter(
+        const Ray& rayIn, const HitRecord& hitRecord, Vector3f& attenuation, Ray& scattered
+    )  const override {
+        return false;
+    };
+
+    virtual Vector3f emit() const override {
+        return lightColor;
+    }
+
+public:
+    Vector3f lightColor;
+};
+
 class Sphere {
 public:
-    Sphere(Vector3f center, float radius) : center(center), radius(radius) {}
+    Sphere(Vector3f center, float radius, Material* material) : center(center), radius(radius), material(material) {
+    }
     inline bool hit(const Ray& r, HitRecord& rec) const {
         Vector3f oc = r.origin() - center;
         float b = oc.dot(r.direction());
@@ -60,16 +130,17 @@ public:
         return (point - center).normalized();
     }
 
+    Material* material;
+
 private:
     Vector3f center;
     float radius;
 };
 
 
-
 class Cube {
 public:
-    Cube(Vector3f center) : center(center) {
+    Cube(Vector3f center, Material* material) : center(center), material(material) {
         normals << 0, 0, -1,
                 0, 0, 1,
                 0, 1, 0,
@@ -113,6 +184,8 @@ public:
         rotation *= (AngleAxisf(angle * pi, Vector3f::UnitX()) * AngleAxisf(angle * pi, Vector3f::UnitY())).toRotationMatrix();
     };
 
+    Material* material;
+
 private:
     Vector3f center;
     Matrix<float, 6, 3> normals;
@@ -125,12 +198,12 @@ class Scene {
 public:
     Scene() {}
 
-    void addSphere(Vector3f center, float radius) {
-        spheres.push_back(Sphere(center, radius));
+    void addSphere(Vector3f center, float radius, Material* material) {
+        spheres.push_back(Sphere(center, radius, material));
     }
 
-    void addCube(Vector3f center) {
-        cubes.push_back(center);
+    void addCube(Vector3f center, Material* material) {
+        cubes.push_back({ center, material });
     }
 
     bool hit(const Ray& r, double t_min, double t_max, HitRecord& hitRecord) const {
@@ -142,14 +215,17 @@ public:
                 minDistance = temp.t;
                 hitSomething = true;
                 hitRecord = temp;
+                hitRecord.material = sphere.material;
             }
         }
 
-        for (const Cube& cubes: cubes) {
-            if (cubes.hit(r, temp) && temp.t < minDistance && t_min < temp.t && temp.t < t_max) {
+        for (const Cube& cube: cubes) {
+            if (cube.hit(r, temp) && temp.t < minDistance && t_min < temp.t && temp.t < t_max) {
                 minDistance = temp.t;
                 hitSomething = true;
                 hitRecord = temp;
+                hitRecord.material = cube.material;
+
             }
         }
 
