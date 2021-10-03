@@ -113,7 +113,7 @@ int main()
         using std::chrono::milliseconds;
         auto t1 = high_resolution_clock::now();
 
-        //camera.render();
+        camera.render();
 
         auto t2 = high_resolution_clock::now();
         duration<double, std::milli> ms_double = t2 - t1;

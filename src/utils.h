@@ -1,10 +1,15 @@
 #pragma once
 #include "Eigen/Dense"
 #include "Eigen/Geometry" 
+#include <random>
 
 using namespace Eigen;
 
+std::random_device rd;
+std::mt19937 gen = std::mt19937(rd());
 #define pi 3.14159265358979323846
+static std::normal_distribution<float> normalDistribution{ 0, 1 };
+static std::uniform_real_distribution<float> uniformDistribution{ 0, pi };
 
 template<typename T, unsigned int n, unsigned m>
 std::istream& operator>>(std::istream& in, Matrix<T, n, m>& other)
@@ -15,19 +20,19 @@ std::istream& operator>>(std::istream& in, Matrix<T, n, m>& other)
     return in;
 }
 
-inline Vector3f randomVector() {
-    float  teta = ((float)rand() / RAND_MAX) * pi;
-    float phi = ((float)rand() / RAND_MAX) * pi;
+inline Vector3f randomUnitVector() {
+    //float teta = ((float)rand() / RAND_MAX) * pi;
+    //float phi = ((float)rand() / RAND_MAX)  * pi;
 
     // speed boost
-    //float teta = uniformDistribution(gen) * pi;
-    //float phi = uniformDistribution(gen) * pi;
-    return { sin(teta) * cos(phi), sin(teta) * sin(phi), cos(phi) };
-    //return Vector3f{ normalDistribution(gen), normalDistribution(gen), normalDistribution(gen) }.normalized();
+    //float teta = uniformDistribution(gen);
+    //float phi = uniformDistribution(gen);
+    //return { sin(teta) * cos(phi), sin(teta) * sin(phi), cos(phi) };
+    return Vector3f{ normalDistribution(gen), normalDistribution(gen), normalDistribution(gen) }.normalized();
 }
 
-inline Vector3f randomVector(const Vector3f& normal) {
-    return normal * 1.001 + randomVector();
+inline Vector3f randomUnitVector(const Vector3f& normal) {
+    return normal * 1.0001 + randomUnitVector();
 }
 
 inline float clamp(float x, float min, float max) {

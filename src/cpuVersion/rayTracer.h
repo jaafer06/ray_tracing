@@ -47,12 +47,14 @@ public:
 
         scene.addSphere({ 0, 0, -4 }, 0.5, new Lambertian({0.8, 0.8, 0}));
         scene.addSphere({ 1.5, 0, -3 }, 0.5, new Lambertian({0.5, 0, 0}));
-        scene.addSphere({ 0, -94, -40 }, 100, new Lambertian({1, 1, 1}));
+        scene.addSphere({ 0, -94, -40 }, 100, new Lambertian({0.3, 0.9, 0.7}));
 
-        scene.addCube({ 1, 1.5, -2 }, new LightSource({1, 1, 1}));
+        //scene.addCube({ 1, 2, -2 }, new LightSource({5, 5, 5}));
+        scene.addSphere({ 1, 2, -2 }, 0.5, new LightSource({ 5, 5, 5 }));
+
         //scene.addCube({ 1, 1.5, -2 }, new Lambertian({ 0.8, 0, 0.8 }));
 
-        scene.addSphere({ 4.5, 1, -3 }, 1, new Metal({ 0.8, 0.5, 1 }));
+        scene.addSphere({ 4.5, 1, -3 }, 1, new Metal({ 0.8, 0.5, 1 }, 0.08));
         //scene.addSphere({ 4.5, 1, -3 }, 1, new Lambertian({ 0.8, 0.5, 1 }));
 
 
@@ -69,11 +71,11 @@ public:
             int i = index % width;
             int j = index / width;
             Vector3f pixelWorldSpace = upper_left + worldStep * i * right - worldStep * j * up;
-            renderPixel<15>(pixelWorldSpace, (height - 1 - j) * width + i);
+            renderPixel<5>(pixelWorldSpace, (height - 1 - j) * width + i, 10);
         };
 
         std::for_each(std::execution::par_unseq, buffer, buffer+width*height-1, p);
-        scene.cubes[0].rotate(0.1);
+        //scene.cubes[0].rotate(0.1);
         //light += Vector3f(0, 0, -0.01);
         //upper_left += Vector3f{0, 0, -0.01};
     }
@@ -106,7 +108,7 @@ public:
             return Vector3f(0, 0, 0);
         }
 
-        if (scene.hit(r, 0.1, std::numeric_limits<float>::max(), hitRecord)) {
+        if (scene.hit(r, 0.001, std::numeric_limits<float>::max(), hitRecord)) {
             Ray scattered;
             Vector3f attenuation;
             if (hitRecord.material->scatter(r, hitRecord, attenuation, scattered)) {
@@ -114,14 +116,13 @@ public:
 
             } else {
                 return  hitRecord.material->emit();
-
             }
         }
 
         //Vector3f unit_direction = r.direction();
         //float t = 0.5 * (unit_direction[1] + 1.);
         //return (1.0 - t) * Vector3f(1.0, 1.0, 1.0) + t * Vector3f(0.5, 0.7, 1.0);
-        return { 0.1, 0.1, 0.1 };
+        return { 0., 0., 0. };
     };
 
 private:

@@ -35,6 +35,7 @@ struct HitRecord {
     Material* material;
 };
 
+
 class Material {
 public:
     virtual bool scatter(
@@ -50,7 +51,7 @@ public:
     virtual bool scatter(
         const Ray& rayIn, const HitRecord& hitRecord, Vector3f& attenuation, Ray& scattered
     )  const override {
-        auto scatter_direction = randomVector(hitRecord.normal);
+        auto scatter_direction = randomUnitVector(hitRecord.normal);
         scattered = Ray(hitRecord.p, scatter_direction);
         attenuation = 0.6*albedo;
         return true;
@@ -65,17 +66,16 @@ public:
 };
 
 
-
 class Metal: public Material {
 public:
-    Metal(const Vector3f& a) : albedo(a) {}
+    Metal(const Vector3f& a, float fuzyy = 0) : albedo(a), fuzzy(fuzyy) {}
 
     virtual bool scatter(
         const Ray& rayIn, const HitRecord& hitRecord, Vector3f& attenuation, Ray& scattered
     )  const override {
         Vector3f reflected = reflect(rayIn.direction(), hitRecord.normal);
         scattered.orig = hitRecord.p;
-        scattered.dir = reflected;
+        scattered.dir = reflected + fuzzy * randomUnitVector();
         attenuation = albedo;
         return (scattered.dir.dot(hitRecord.normal)  > 0);
     };
@@ -86,6 +86,7 @@ public:
 
 public:
     Vector3f albedo;
+    float fuzzy;
 };
 
 
@@ -149,6 +150,7 @@ public:
                 -1, 0, 0;
         betas = Matrix<float, 6, 1>::Ones() * 0.5;
         rotation = Matrix3f::Identity();
+        rotate(0.3);
     }
 
     inline bool hit(const Ray& ray, HitRecord& rec) const {
