@@ -9,6 +9,8 @@
 #include <chrono>
 #include <random>
 #include "utils.h"
+#include "cpuVersion/rayMarching.h"
+
 
 static void error_callback(int error, const char *description)
 {
@@ -16,9 +18,15 @@ static void error_callback(int error, const char *description)
 }
 
 
-
 int main()
 {
+    
+    //RayMarching::Cube c{ 1, 1 };
+    //RayMarching::BasicShape shape = c;
+    //Vector3f p{ 0, 0, 0 };
+    //std::visit(RayMarching::Visitors::SignedDistanceFunction{p}, shape);
+
+
     unsigned int width = 960;
     unsigned int height = 540;
     unsigned int channels = 3;
@@ -113,12 +121,12 @@ int main()
         using std::chrono::milliseconds;
         auto t1 = high_resolution_clock::now();
 
-        camera.render();
+        //camera.render();
 
         auto t2 = high_resolution_clock::now();
         duration<double, std::milli> ms_double = t2 - t1;
 
-        std::cout << ms_double.count() << "ms" << std::endl;
+        //std::cout << ms_double.count() << "ms" << std::endl;
 
         glfwPollEvents();
         glfwSwapBuffers(window);

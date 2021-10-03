@@ -10,6 +10,7 @@
 #include <random>
 #include <atomic>
 #include "utils.h"
+#include "rayMarching.h"
 
 using namespace Eigen;
 
@@ -45,22 +46,21 @@ public:
         upper_left = Vector3f{ -worldWidth / 2, worldHeight / 2, -focalLength} + position;
         worldStep = worldWidth / width;
 
-        scene.addSphere({ 0, 0, -4 }, 0.5, new Lambertian({0.8, 0.8, 0}));
-        scene.addSphere({ 1.5, 0, -3 }, 0.5, new Lambertian({0.5, 0, 0}));
-        scene.addSphere({ 0, -94, -40 }, 100, new Lambertian({0.3, 0.9, 0.7}));
+        //scene.addSphere({ 0, 0, -4 }, 0.5, new Lambertian({0.8, 0.8, 0}));
+        //scene.addSphere({ 1.5, 0, -3 }, 0.5, new Lambertian({0.5, 0, 0}));
+        //scene.addSphere({ 0, -94, -40 }, 100, new Lambertian({0.3, 0.9, 0.7}));
 
-        //scene.addCube({ 1, 2, -2 }, new LightSource({5, 5, 5}));
-        scene.addSphere({ 1, 2, -2 }, 0.5, new LightSource({ 5, 5, 5 }));
+        ////scene.addCube({ 1, 2, -2 }, new LightSource({5, 5, 5}));
+        //scene.addSphere({ 1, 2, -2 }, 0.5, new LightSource({ 5, 5, 5 }));
 
-        //scene.addCube({ 1, 1.5, -2 }, new Lambertian({ 0.8, 0, 0.8 }));
+        ////scene.addCube({ 1, 1.5, -2 }, new Lambertian({ 0.8, 0, 0.8 }));
 
-        scene.addSphere({ 4.5, 1, -3 }, 1, new Metal({ 0.8, 0.5, 1 }, 0.08));
-        //scene.addSphere({ 4.5, 1, -3 }, 1, new Lambertian({ 0.8, 0.5, 1 }));
+        //scene.addSphere({ 4.5, 1, -3 }, 1, new Metal({ 0.8, 0.5, 1 }, 0.08));
+        ////scene.addSphere({ 4.5, 1, -3 }, 1, new Lambertian({ 0.8, 0.5, 1 }));
+     
+        //scene.push_back(RayMarching::Sphere{ 1, {0, 0, 0}, 2 });
+        scene.push_back(RayMarching::Box{ 1, {0, 0, 0}, {0.5, 0.5, 0.5} });
 
-
-        gen = std::mt19937(rd());
-        normalDistribution = std::normal_distribution<float>{ 0, 1 };
-        uniformDistribution = std::uniform_real_distribution<float>{ 0,  pi};
 
     }
 
@@ -101,28 +101,31 @@ public:
 
     }
 
-    Vector3f ray_color(const Ray& r, int depth) {
+    Vector3f ray_color(const Ray& ray, int depth) {
         HitRecord hitRecord;
 
         if (depth < 0) {
             return Vector3f(0, 0, 0);
         }
 
-        if (scene.hit(r, 0.001, std::numeric_limits<float>::max(), hitRecord)) {
-            Ray scattered;
-            Vector3f attenuation;
-            if (hitRecord.material->scatter(r, hitRecord, attenuation, scattered)) {
-                return attenuation.cwiseProduct(ray_color(scattered, depth - 1));
+        //if (scene.hit(r, 0.001, std::numeric_limits<float>::max(), hitRecord)) {
+        //    Ray scattered;
+        //    Vector3f attenuation;
+        //    if (hitRecord.material->scatter(r, hitRecord, attenuation, scattered)) {
+        //        return attenuation.cwiseProduct(ray_color(scattered, depth - 1));
 
-            } else {
-                return  hitRecord.material->emit();
-            }
+        //    } else {
+        //        return  hitRecord.material->emit();
+        //    }
+        //}
+        auto hitResult = RayMarching::march(scene, RayMarching::Ray{ ray.orig, ray.dir, 0 }, 5);
+        if (hitResult.has_value()) {
+            return { 1, 0, 0 };
         }
-
-        //Vector3f unit_direction = r.direction();
-        //float t = 0.5 * (unit_direction[1] + 1.);
-        //return (1.0 - t) * Vector3f(1.0, 1.0, 1.0) + t * Vector3f(0.5, 0.7, 1.0);
-        return { 0., 0., 0. };
+        Vector3f unit_direction = ray.direction();
+        float t = 0.5 * (unit_direction[1] + 1.);
+        return (1.0 - t) * Vector3f(1.0, 1.0, 1.0) + t * Vector3f(0.5, 0.7, 1.0);
+        //return { 0., 0., 0. };
     };
 
 private:
@@ -137,10 +140,6 @@ private:
     float worldStep;
     Vector3f upper_left;
     Color* buffer;
-    Scene scene;
-    std::random_device rd;
-    std::mt19937 gen;
-    std::normal_distribution<float> normalDistribution;
-    std::uniform_real_distribution<float> uniformDistribution;
+    std::vector<RayMarching::BasicShape> scene;
 
 };
