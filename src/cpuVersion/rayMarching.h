@@ -10,19 +10,25 @@
 using namespace Eigen;
 namespace RayMarching {
 
+	struct Ray {
+		Vector3f at() const {
+			return origin + direction * t;
+		}
+
+		const Vector3f origin;
+		const Vector3f direction;
+		const float t;
+	};
 
 	struct ImplicitSurface {
 	public:
 		ImplicitSurface(unsigned int materialIndex): materialIndex(materialIndex) {}
 
-		float signedDistanceFuntion(const Vector3f& point) const {
-			throw "not implemented";
-		}
+		float signedDistanceFuntion(const Vector3f& point) const { throw "not implemented"; }
+		inline Vector3f normalAt(const Vector3f point) { throw "not implemented"; }
+		std::optional<float> hit(const Ray& ray) { throw "not implemented"; };
 
-		inline Vector3f normalAt(const Vector3f point) {
-			throw "not implemented";
-		}
-
+	protected:
 		unsigned int materialIndex;
 		std::array<float, 6> data;
 
@@ -54,6 +60,17 @@ namespace RayMarching {
 			return (point-getCenter()).normalized();
 		}
 
+		const std::optional<float> hit(const Ray& ray) {
+			const Vector3f oc = ray.origin - getCenter();
+			const float b = oc.dot(ray.direction);
+			const float c = oc.dot(oc) - getRadius() * getRadius();
+			const float discriminant = b * b - c;
+			if (discriminant < 0) {
+				return std::nullopt;
+			}
+			return -b - sqrt(discriminant);
+		}
+
 		inline const Vector3f getCenter() const {
 			return Eigen::Map<const Vector3f>(data.data());
 		};
@@ -83,6 +100,17 @@ namespace RayMarching {
 			const Vector3f q = point.cwiseAbs() - getDimention();
 			//return q.cwiseMax(0).norm() + std::min(q.minCoeff(), 0.f);
 			return q.cwiseMax(0).norm() + std::min(q.maxCoeff(), 0.f);
+		}
+
+		const std::optional<float> hit(const Ray& ray) {
+			//const Vector3f oc = ray.origin - getCenter();
+			//const float b = oc.dot(ray.direction);
+			//const float c = oc.dot(oc) - getRadius() * getRadius();
+			//const float discriminant = b * b - c;
+			//if (discriminant < 0) {
+			//	return std::nullopt;
+			//}
+			//return -b - sqrt(discriminant);
 		}
 
 		inline Vector3f normalAt(const Vector3f& point) {
@@ -125,25 +153,6 @@ namespace RayMarching {
 		}
 	};
 
-	struct Ray {
-		const Vector3f origin;
-		const Vector3f direction;
-		float t;
-
-		Vector3f at() const {
-			return origin + direction * t;
-		}
-
-		Vector3f at(float tPrime) const {
-			return origin + direction * tPrime;
-		}
-
-		void advance(float distance) {
-			t +=  distance;
-		}
-
-	};
-
 
 	using HitResult = std::optional<const BasicShape>;
 
@@ -164,24 +173,6 @@ namespace RayMarching {
 			}
 		}
 		return { minDistance, shapes[minDistanceIndex] };
-	}
-
-	HitResult march(const std::vector<BasicShape>& shapes, Ray& ray, const float maxDepth, unsigned int maxMarchingSteps = 10) {
-		do {
-			const Vector3f currentPosition = ray.at();
-			const ShapeDistance& closestShapeDistance = getColosestShape(shapes, currentPosition);
-
-			if (closestShapeDistance.distance < 0.01 && closestShapeDistance.distance > -0.01) {
-				return { closestShapeDistance.shape };
-			} else if (closestShapeDistance.distance > maxDepth || maxMarchingSteps <= 0) {
-				return { std::nullopt };
-			}
-			//std::cout << closestShapeDistance.distance << std::endl;
-
-			ray.advance(closestShapeDistance.distance);
-			--maxMarchingSteps;
-		} while (true);
-
 	}
 
 };
