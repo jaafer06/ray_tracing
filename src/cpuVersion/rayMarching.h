@@ -19,6 +19,10 @@ namespace RayMarching {
 			throw "not implemented";
 		}
 
+		inline Vector3f normalAt(const Vector3f point) {
+			throw "not implemented";
+		}
+
 		unsigned int materialIndex;
 		std::array<float, 6> data;
 
@@ -36,7 +40,7 @@ namespace RayMarching {
 
 	struct Sphere : public ImplicitSurface {
 	public:
-		Sphere(unsigned int materialIndex, const Vector3f& center	, float radius) : ImplicitSurface{ materialIndex } {
+		Sphere(unsigned int materialIndex, const Vector3f& center, float radius) : ImplicitSurface{ materialIndex } {
 			setCenter(center);
 			setRadius(radius);
 		}
@@ -44,6 +48,10 @@ namespace RayMarching {
 
 		float signedDistanceFuntion(const Vector3f& point) const {
 			return (point - getCenter()).norm() - getRadius();
+		}
+
+		inline Vector3f normalAt(const Vector3f& point) {
+			return (point-getCenter()).normalized();
 		}
 
 		inline const Vector3f getCenter() const {
@@ -73,8 +81,22 @@ namespace RayMarching {
 
 		float signedDistanceFuntion(const Vector3f& point) const {
 			const Vector3f q = point.cwiseAbs() - getDimention();
-			return q.cwiseMax(0).norm() + std::min(q.minCoeff(), 0.f);
-			//return q.cwiseMax(0).norm() + std::min(q.maxCoeff(), 0.f);
+			//return q.cwiseMax(0).norm() + std::min(q.minCoeff(), 0.f);
+			return q.cwiseMax(0).norm() + std::min(q.maxCoeff(), 0.f);
+		}
+
+		inline Vector3f normalAt(const Vector3f& point) {
+			constexpr auto indexToAxis = [](unsigned int index) -> Vector3f {
+				switch (index) {
+					case 0: return { 1, 0, 0 };
+					case 1: return { 0, 1, 0 };
+					case 2: return { 0, 0, 1 };
+				}
+			};
+
+			const unsigned int minCoef = (1-point.array().cwiseAbs()).minCoeff();
+			const int sign = std::signbit(point(minCoef)) * 2 - 1;
+			return indexToAxis(minCoef)* sign;
 		}
 
 		inline const Vector3f getCenter() const {
@@ -98,7 +120,9 @@ namespace RayMarching {
 	using BasicShape = std::variant<Box, Sphere>;
 
 	struct Material {
-
+		std::optional<Ray> scatter(const Ray& rayIn, const BasicShape& shape) {
+			
+		}
 	};
 
 	struct Ray {
@@ -146,6 +170,7 @@ namespace RayMarching {
 		do {
 			const Vector3f currentPosition = ray.at();
 			const ShapeDistance& closestShapeDistance = getColosestShape(shapes, currentPosition);
+
 			if (closestShapeDistance.distance < 0.01 && closestShapeDistance.distance > -0.01) {
 				return { closestShapeDistance.shape };
 			} else if (closestShapeDistance.distance > maxDepth || maxMarchingSteps <= 0) {

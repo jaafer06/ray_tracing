@@ -60,7 +60,10 @@ public:
      
         //scene.push_back(RayMarching::Sphere{ 1, {0, 0, 0}, 2 });
         scene.push_back(RayMarching::Box{ 1, {0, 0, 0}, {0.5, 0.5, 0.5} });
+        scene.push_back(RayMarching::Sphere{ 1, {0, 0, -4}, 0.5 });
+        scene.push_back(RayMarching::Sphere{ 1, {1.5, 0, -3}, 0.5 });
 
+        scene.push_back(RayMarching::Sphere{ 1, { 0, -94, -40}, 100 });
 
     }
 
@@ -91,7 +94,7 @@ public:
             currentPosition = pixelWorldSpace - up * stepSize * i;
             for (unsigned int j = 0; j < N; ++j) {
                 currentPosition += right * stepSize * j;
-                Ray ray(currentPosition, currentPosition - position);
+                RayMarching::Ray ray{ currentPosition, currentPosition - position, 0 };
                 pixelColor += ray_color(ray, steps);
             }
         }
@@ -101,7 +104,7 @@ public:
 
     }
 
-    Vector3f ray_color(const Ray& ray, int depth) {
+    Vector3f ray_color(RayMarching::Ray& ray, int depth) {
         HitRecord hitRecord;
 
         if (depth < 0) {
@@ -118,11 +121,11 @@ public:
         //        return  hitRecord.material->emit();
         //    }
         //}
-        auto hitResult = RayMarching::march(scene, RayMarching::Ray{ ray.orig, ray.dir, 0 }, 5);
+        auto hitResult = RayMarching::march(scene, ray, 10, 2);
         if (hitResult.has_value()) {
             return { 1, 0, 0 };
         }
-        Vector3f unit_direction = ray.direction();
+        const Vector3f& unit_direction = ray.direction;
         float t = 0.5 * (unit_direction[1] + 1.);
         return (1.0 - t) * Vector3f(1.0, 1.0, 1.0) + t * Vector3f(0.5, 0.7, 1.0);
         //return { 0., 0., 0. };
