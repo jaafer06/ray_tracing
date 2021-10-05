@@ -20,8 +20,9 @@ static void error_callback(int error, const char *description)
 
 int main()
 {
-    unsigned int width = 960;
-    unsigned int height = 540;
+
+    unsigned int width = 500;
+    unsigned int height = 500;
     unsigned int channels = 3;
 
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
@@ -114,7 +115,7 @@ int main()
         using std::chrono::milliseconds;
         auto t1 = high_resolution_clock::now();
 
-        camera.render();
+        //camera.render();
 
         auto t2 = high_resolution_clock::now();
         duration<double, std::milli> ms_double = t2 - t1;

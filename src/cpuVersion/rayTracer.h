@@ -74,11 +74,11 @@ public:
             int i = index % width;
             int j = index / width;
             Vector3f pixelWorldSpace = upper_left + worldStep * i * right - worldStep * j * up;
-            renderPixel<5>(pixelWorldSpace, (height - 1 - j) * width + i, 10);
+            renderPixel<15>(pixelWorldSpace, (height - 1 - j) * width + i, 10);
         };
 
         std::for_each(std::execution::par_unseq, buffer, buffer+width*height-1, p);
-        //scene.cubes[0].rotate(0.1);
+        scene.cubes[0].rotate(0.1);
         //light += Vector3f(0, 0, -0.01);
         //upper_left += Vector3f{0, 0, -0.01};
     }
