@@ -150,35 +150,64 @@ public:
                 -1, 0, 0;
         betas = Matrix<float, 6, 1>::Ones() * 0.5;
         rotation = Matrix3f::Identity();
-        rotate(0.3);
+        //rotation(0, 2) = -1;
+        //rotate(0.3);
+    }
+
+    inline Vector3f normalAt(const Vector3f& point) const {
+        constexpr auto indexToAxis = [](unsigned int index) -> Vector3f {
+            switch (index) {
+            case 0: return { 1, 0, 0 };
+            case 1: return { 0, 1, 0 };
+            case 2: return { 0, 0, 1 };
+            }
+        };
+
+        unsigned int minCoefIndex;
+        const float minCoeff = (1 - point.array().cwiseAbs()).minCoeff(&minCoefIndex);
+        const int sign = std::signbit(minCoeff) * 2 - 1;
+        return indexToAxis(minCoefIndex) * sign;
     }
 
     inline bool hit(const Ray& ray, HitRecord& rec) const {
-        Vector3f originTransformed = rotation*(ray.orig - center);
-        Vector3f directionTransformed = rotation*ray.dir;
-        Matrix<float, 6, 1> ts =  (betas - normals * originTransformed).cwiseQuotient(normals *directionTransformed);
-        Matrix<float, 6, 3> intersectionPoints = (ts * directionTransformed.transpose()).rowwise() + originTransformed.transpose();
-        //std::cout << intersectionPoint.cwiseAbs().maxCoeff()  << std::endl;
-        
-        Matrix<float, 6, 1> m = intersectionPoints.cwiseAbs().rowwise().maxCoeff();
-        auto check = (m.array() == 0.5);
-        if (check.any()) {
-            float tmin = std::numeric_limits<float>::max();
-            unsigned int normalIndex = 0;
+        const Vector3f originTransformed = rotation*(ray.orig - center);
+        const Vector3f directionTransformed = rotation*ray.dir;
+        const Vector3f sign = originTransformed.cwiseSign();
 
-            for (int index = 0; index < 6; ++index) {
+        //const float tOut = (0.5 - originTransformed.array() * -sign.array()).cwiseQuotient(-sign.array() * directionTransformed.array()).minCoeff();
+        //const Vector3f pointOut = (originTransformed + directionTransformed * tOut);
+        //const float LInfoNorm = pointOut.cwiseAbs().maxCoeff();
+        //if (LInfoNorm != 0.5) {
+        //    return false;
+        //}
+        //const float tIn = (0.5 - pointOut.array() * sign.array()).cwiseQuotient(sign.array() * -directionTransformed.array()).minCoeff();
 
-                if (m(index) == 0.5 && tmin > ts(index)) {
-                    tmin = ts(index);
-                    normalIndex = 0;
-                }
-            };
-            rec.normal = normals.row(normalIndex);
-            rec.p = rotation.transpose() * intersectionPoints.row(normalIndex).transpose() + center;
-            rec.t = ts(normalIndex);
+        //rec.t = tIn;
+        //rec.p = ray.orig + tIn * ray.dir;
+        //rec.normal = normalAt(rec.p);
+        //return true;
+
+        const Vector3f t = (0.5 - originTransformed.array() * sign.array()).cwiseQuotient(sign.array() * directionTransformed.array());
+        if ((originTransformed + directionTransformed* t(0)).cwiseAbs().maxCoeff() == 0.5) {
+            rec.t = t(0);
+            rec.p = ray.orig + rec.t * ray.dir;
+            rec.normal = normalAt(rec.p);
+            return true;
+        } 
+        if ((originTransformed + directionTransformed * t(1)).cwiseAbs().maxCoeff() == 0.5) {
+            rec.t = t(1);
+            rec.p = ray.orig + rec.t * ray.dir;
+            rec.normal = normalAt(rec.p);
+            return true;
+        } 
+        if ((originTransformed + directionTransformed * t(2)).cwiseAbs().maxCoeff() == 0.5) {
+            rec.t = t(2);
+            rec.p = ray.orig + rec.t * ray.dir;
+            rec.normal = normalAt(rec.p);
             return true;
         }
         return false;
+
 
     };
 

@@ -49,13 +49,14 @@ public:
         scene.addSphere({ 1.5, 0, -3 }, 0.5, new Lambertian({0.5, 0, 0}));
         scene.addSphere({ 0, -94, -40 }, 100, new Lambertian({0.3, 0.9, 0.7}));
 
-        //scene.addCube({ 1, 2, -2 }, new LightSource({5, 5, 5}));
-        scene.addSphere({ 1, 2, -2 }, 0.5, new LightSource({ 5, 5, 5 }));
+        scene.addCube({ 1, 2, -2 }, new LightSource({5, 5, 5}));
+        //scene.addSphere({ 1, 2, -2 }, 0.5, new LightSource({ 5, 5, 5 }));
 
         //scene.addCube({ 1, 1.5, -2 }, new Lambertian({ 0.8, 0, 0.8 }));
 
         scene.addSphere({ 4.5, 1, -3 }, 1, new Metal({ 0.8, 0.5, 1 }, 0.08));
         //scene.addSphere({ 4.5, 1, -3 }, 1, new Lambertian({ 0.8, 0.5, 1 }));
+        scene.addCube({ -1, 0, -2 }, new Lambertian({ 0.5, 0.5, 1 }));
 
 
         gen = std::mt19937(rd());
@@ -71,11 +72,11 @@ public:
             int i = index % width;
             int j = index / width;
             Vector3f pixelWorldSpace = upper_left + worldStep * i * right - worldStep * j * up;
-            renderPixel<5>(pixelWorldSpace, (height - 1 - j) * width + i, 10);
+            renderPixel<15>(pixelWorldSpace, (height - 1 - j) * width + i, 10);
         };
 
         std::for_each(std::execution::par_unseq, buffer, buffer+width*height-1, p);
-        //scene.cubes[0].rotate(0.1);
+        scene.cubes[0].rotate(0.1);
         //light += Vector3f(0, 0, -0.01);
         //upper_left += Vector3f{0, 0, -0.01};
     }
