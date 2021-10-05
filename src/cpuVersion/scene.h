@@ -142,13 +142,6 @@ private:
 class Cube {
 public:
     Cube(Vector3f center, Material* material) : center(center), material(material) {
-        normals << 0, 0, -1,
-                0, 0, 1,
-                0, 1, 0,
-                0, -1, 0,
-                1, 0, 0,
-                -1, 0, 0;
-        betas = Matrix<float, 6, 1>::Ones() * 0.5;
         rotation = Matrix3f::Identity();
         //rotation(0, 2) = -1;
         //rotate(0.3);
@@ -157,16 +150,36 @@ public:
     inline Vector3f normalAt(const Vector3f& point) const {
         constexpr auto indexToAxis = [](unsigned int index) -> Vector3f {
             switch (index) {
-            case 0: return { 1, 0, 0 };
-            case 1: return { 0, 1, 0 };
-            case 2: return { 0, 0, 1 };
+                case 0: return { 1, 0, 0 };
+                case 1: return { 0, 1, 0 };
+                case 2: return { 0, 0, 1 };
             }
         };
 
-        unsigned int minCoefIndex;
-        const float minCoeff = (1 - point.array().cwiseAbs()).minCoeff(&minCoefIndex);
-        const int sign = std::signbit(minCoeff) * 2 - 1;
-        return indexToAxis(minCoefIndex) * sign;
+        unsigned int maxCoefIndex;
+        const float maxCoeff = point.array().cwiseAbs().maxCoeff(&maxCoefIndex);
+        const int sign = -std::signbit(maxCoeff) * 2 + 1;
+        return indexToAxis(maxCoefIndex) * sign;
+        //return indexToAxis(maxCoefIndex) * std::copysignf(1., maxCoeff);
+    }
+
+    inline bool hit2(const Ray& ray, HitRecord& rec) const {
+        const Vector3f originTransformed = rotation * (ray.orig - center);
+        const Vector3f directionTransformed = rotation * ray.dir;
+        const Vector3f sign = originTransformed.cwiseSign();
+
+        const float tOut = (0.5 - originTransformed.array() * -sign.array()).cwiseQuotient(-sign.array() * directionTransformed.array()).minCoeff();
+        const Vector3f pointOut = (originTransformed + directionTransformed * tOut);
+        const float LInfoNorm = pointOut.cwiseAbs().maxCoeff();
+        if (LInfoNorm != 0.5) {
+            return false;
+        }
+        const float tIn = (0.5 - pointOut.array() * sign.array()).cwiseQuotient(sign.array() * -directionTransformed.array()).minCoeff();
+
+        rec.t = tIn;
+        rec.p = ray.orig + tIn * ray.dir;
+        rec.normal = normalAt(rec.p);
+        return true;
     }
 
     inline bool hit(const Ray& ray, HitRecord& rec) const {
@@ -174,40 +187,19 @@ public:
         const Vector3f directionTransformed = rotation*ray.dir;
         const Vector3f sign = originTransformed.cwiseSign();
 
-        //const float tOut = (0.5 - originTransformed.array() * -sign.array()).cwiseQuotient(-sign.array() * directionTransformed.array()).minCoeff();
-        //const Vector3f pointOut = (originTransformed + directionTransformed * tOut);
-        //const float LInfoNorm = pointOut.cwiseAbs().maxCoeff();
-        //if (LInfoNorm != 0.5) {
-        //    return false;
-        //}
-        //const float tIn = (0.5 - pointOut.array() * sign.array()).cwiseQuotient(sign.array() * -directionTransformed.array()).minCoeff();
-
-        //rec.t = tIn;
-        //rec.p = ray.orig + tIn * ray.dir;
-        //rec.normal = normalAt(rec.p);
-        //return true;
-
         const Vector3f t = (0.5 - originTransformed.array() * sign.array()).cwiseQuotient(sign.array() * directionTransformed.array());
-        if ((originTransformed + directionTransformed* t(0)).cwiseAbs().maxCoeff() == 0.5) {
-            rec.t = t(0);
-            rec.p = ray.orig + rec.t * ray.dir;
-            rec.normal = normalAt(rec.p);
-            return true;
-        } 
-        if ((originTransformed + directionTransformed * t(1)).cwiseAbs().maxCoeff() == 0.5) {
-            rec.t = t(1);
-            rec.p = ray.orig + rec.t * ray.dir;
-            rec.normal = normalAt(rec.p);
-            return true;
-        } 
-        if ((originTransformed + directionTransformed * t(2)).cwiseAbs().maxCoeff() == 0.5) {
-            rec.t = t(2);
-            rec.p = ray.orig + rec.t * ray.dir;
-            rec.normal = normalAt(rec.p);
-            return true;
+        for (unsigned int index = 0; index < 3; ++index) {
+            const Vector3f inPoint = originTransformed + directionTransformed * t(index);
+            if (inPoint.cwiseAbs().maxCoeff() == 0.5) {
+                rec.t = t(index);
+                rec.p = ray.orig + t(index) * ray.dir;
+                rec.normal = rotation.transpose() * normalAt(inPoint);
+                //std::cout << rec.normal(0) << " " << rec.normal(1) << " " << rec.normal(2) << " " << std::endl;
+                return true;
+            }
         }
-        return false;
 
+        return false;
 
     };
 
@@ -256,7 +248,6 @@ public:
                 hitSomething = true;
                 hitRecord = temp;
                 hitRecord.material = cube.material;
-
             }
         }
 
