@@ -32,57 +32,93 @@ struct Color {
 class Camera {
 public:
 
+    enum class Direction {
+        FORWARD, BACKWARD, RIGHT, LEFT
+    };
+
     Camera(void* buffer, unsigned int width, unsigned int height) : width(width), height(height) {
         srand((unsigned)time(NULL));
 
-        position = Vector3f(1, 0, 6);
+        position = Vector3f(1, 0, 5);
         focalLength = 1;
         up = Vector3f(0, 1, 0);
         right = Vector3f(1, 0, 0);
+        lookingAt = Vector3f(0, 0, -1);
         this->buffer = static_cast<Color*>(buffer);
 
         worldWidth = width *  ( 1 / sqrt(width * height));
         worldHeight = height * ( 1 / sqrt(width * height));
         upper_left = Vector3f{ -worldWidth / 2, worldHeight / 2, -focalLength} + position;
         worldStep = worldWidth / width;
+        materials.push_back(RayMarching::Lambertian{ {0.8, 0.8, 0} });
+        materials.push_back(RayMarching::Lambertian{ {0.5, 0, 0} });
+        materials.push_back(RayMarching::Lambertian{ {0.3, 0.9, 0.7} });
+        materials.push_back(RayMarching::Light{ {5, 5, 5} });
+        materials.push_back(RayMarching::Metal{ {0.3, 0.7, 0.7} });
 
-        //scene.addSphere({ 0, 0, -4 }, 0.5, new Lambertian({0.8, 0.8, 0}));
-        //scene.addSphere({ 1.5, 0, -3 }, 0.5, new Lambertian({0.5, 0, 0}));
-        //scene.addSphere({ 0, -94, -40 }, 100, new Lambertian({0.3, 0.9, 0.7}));
-
-        ////scene.addCube({ 1, 2, -2 }, new LightSource({5, 5, 5}));
-        //scene.addSphere({ 1, 2, -2 }, 0.5, new LightSource({ 5, 5, 5 }));
-
-        //scene.addCube({ 1, 1.5, -2 }, new Lambertian({ 0.8, 0, 0.8 }));
-
-        //scene.addSphere({ 4.5, 1, -3 }, 1, new Metal({ 0.8, 0.5, 1 }, 0.08));
-        ////scene.addSphere({ 4.5, 1, -3 }, 1, new Lambertian({ 0.8, 0.5, 1 }));
-     
-        //scene.push_back(RayMarching::Sphere{ 1, {0, 0, 0}, 2 });
-        scene.push_back(RayMarching::Box{ 1, {0, 0, 0}, {0.5, 0.5, 0.5} });
+        // -----------
+        materials.push_back(RayMarching::DebugMaterial{ {0.8, 0.8, 0} });
+        //scene.push_back(RayMarching::Box{ 0, {0, 0, 0}, {0.5, 0.5, 0.5}, 1 });
+        // -----------
+    
+         // test
+        scene.push_back(RayMarching::Sphere{ 2, {0, 0, 0}, 0.5 });
         scene.push_back(RayMarching::Sphere{ 1, {0, 0, -4}, 0.5 });
-        scene.push_back(RayMarching::Sphere{ 1, {1.5, 0, -3}, 0.5 });
+        scene.push_back(RayMarching::Box{ 4, {1.5, 1.5, -7}, {0, 0, 0}, 3  });
+        scene.push_back(RayMarching::Sphere{ 3, { 1, 2, -2 }, 1 });
+        
 
-        scene.push_back(RayMarching::Sphere{ 1, { 0, -94, -40}, 100 });
+        scene.push_back(RayMarching::Sphere{ 2, { 0, -94, -40}, 100 });
 
+    }
+    
+    void rotate(float horizontal, float vertical) {
+        const auto rotation = (AngleAxisf(horizontal, up) * AngleAxisf(vertical, right)).toRotationMatrix();
+        up = rotation * up;
+        right = rotation * right;
+        lookingAt = rotation * lookingAt;
+        upper_left = (-worldWidth / 2 * right)+ (worldHeight / 2 * up) + lookingAt * focalLength + position;
+
+    }
+
+    void move(Direction direction) {
+        switch (direction)
+        {
+        case Direction::FORWARD:
+            position += lookingAt * 0.2;
+            break;
+        case Direction::BACKWARD:
+            position -= lookingAt * 0.2;
+            break;
+        case Direction::RIGHT:
+            position += right * 0.2;
+            break;
+        case Direction::LEFT:
+            position -= right * 0.2;
+            break;
+        default:
+            break;
+        }
+        upper_left = (-worldWidth / 2 * right)+ (worldHeight / 2 * up) + lookingAt * focalLength + position;
     }
 
     void render() { 
 
-        auto p = [this](Color& pixel) {
+        const auto p = [this](Color& pixel) {
             int index = &pixel - buffer;
             int i = index % width;
             int j = index / width;
             Vector3f pixelWorldSpace = upper_left + worldStep * i * right - worldStep * j * up;
-            renderPixel<5>(pixelWorldSpace, (height - 1 - j) * width + i, 10);
+            renderPixel<2>(pixelWorldSpace, (height - 1 - j) * width + i, 10);
         };
 
         std::for_each(std::execution::par_unseq, buffer, buffer+width*height-1, p);
-        scene.cubes[0].rotate(0.1);
-        scene.cubes[1].rotate(0.05);
+        
 
         //light += Vector3f(0, 0, -0.01);
         //upper_left += Vector3f{0, 0, -0.01};
+        //reinterpret_cast<RayMarching::Box*>(&scene[0])->addR();
+
     }
 
     template<unsigned int N>
@@ -96,7 +132,7 @@ public:
             currentPosition = pixelWorldSpace - up * stepSize * i;
             for (unsigned int j = 0; j < N; ++j) {
                 currentPosition += right * stepSize * j;
-                RayMarching::Ray ray{ currentPosition, currentPosition - position, 0 };
+                RayMarching::Ray ray{ currentPosition, (currentPosition - position).normalized(), 0 };
                 pixelColor += ray_color(ray, steps);
             }
         }
@@ -107,8 +143,7 @@ public:
     }
 
     Vector3f ray_color(RayMarching::Ray& ray, int depth) {
-        HitRecord hitRecord;
-
+        Vector3f color;
         if (depth < 0) {
             return Vector3f(0, 0, 0);
         }
@@ -123,20 +158,27 @@ public:
         //        return  hitRecord.material->emit();
         //    }
         //}
-        auto hitResult = RayMarching::march(scene, ray, 10, 2);
-        if (hitResult.has_value()) {
-            return { 1, 0, 0 };
+        auto hitResult = RayMarching::getColosestShape(scene, ray);
+        if (hitResult.distance != RayMarching::inf) {
+            ray.t = hitResult.distance;
+            const unsigned int materialIndex = std::visit(RayMarching::Visitors::MaterialIndex{}, hitResult.shape);
+            const bool scattered = std::visit(RayMarching::Visitors::Scatter{ray, color, hitResult.shape }, materials[materialIndex]);
+            if (scattered) {
+                return color.cwiseProduct(ray_color(ray, depth - 1));
+            }
+            return color;
         }
         const Vector3f& unit_direction = ray.direction;
         float t = 0.5 * (unit_direction[1] + 1.);
         return (1.0 - t) * Vector3f(1.0, 1.0, 1.0) + t * Vector3f(0.5, 0.7, 1.0);
-        //return { 0., 0., 0. };
+        //return { 0, 0, 0 };
     };
 
 private:
     Vector3f position;
     Vector3f up;
     Vector3f right;
+    Vector3f lookingAt;
     float focalLength;
     unsigned int width;
     unsigned int height;
@@ -146,5 +188,6 @@ private:
     Vector3f upper_left;
     Color* buffer;
     std::vector<RayMarching::BasicShape> scene;
+    std::vector<RayMarching::Materials> materials;
 
 };

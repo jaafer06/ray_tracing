@@ -17,10 +17,14 @@ static void error_callback(int error, const char *description)
     fprintf(stderr, "Error: %s\n", description);
 }
 
+static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
+{
+    if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
+        glfwSetWindowShouldClose(window, GLFW_TRUE);
+}
 
 int main()
 {
-
     unsigned int width = 500;
     unsigned int height = 500;
     unsigned int channels = 3;
@@ -101,8 +105,29 @@ int main()
 
     glfwSwapBuffers(window);
     camera.render();
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    glfwSetCursorPos(window, width / 2, height / 2);
+    glfwSetKeyCallback(window, key_callback);
+
     while (!glfwWindowShouldClose(window))
     {
+        double xpos, ypos;
+        glfwGetCursorPos(window, &xpos, &ypos);
+        glfwSetCursorPos(window, width / 2, height / 2);
+        float horizontalAngle = 0.002 * float(width / 2 - xpos);
+        float verticalAngle = 0.002 *  float(height / 2 - ypos);
+        if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+            camera.move(Camera::Direction::FORWARD);
+        if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+            camera.move(Camera::Direction::BACKWARD);
+        if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+            camera.move(Camera::Direction::LEFT);
+        if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+            camera.move(Camera::Direction::RIGHT);
+        horizontalAngle = abs(horizontalAngle) > 0.01 ? horizontalAngle : 0;
+        verticalAngle = abs(verticalAngle) > 0.01 ? verticalAngle : 0;
+        camera.rotate(horizontalAngle, verticalAngle);
+
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_FLOAT, data);
         glBlitFramebuffer(0, 0, width, height,         // src rect
                       0, 0, width, height,         // dst rect
@@ -115,8 +140,8 @@ int main()
         using std::chrono::milliseconds;
         auto t1 = high_resolution_clock::now();
 
-        //camera.render();
-
+        camera.render();
+        
         auto t2 = high_resolution_clock::now();
         duration<double, std::milli> ms_double = t2 - t1;
 
