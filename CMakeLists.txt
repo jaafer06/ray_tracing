@@ -12,6 +12,7 @@ file(GLOB source_files
 file(GLOB header_files
         "src/*.h"
         "src/cpuVersion/*.h"
+        "src/shader/*"
 )
 
 file(GLOB imgui_cpp "external/imgui/*.cpp")
@@ -19,7 +20,7 @@ file(GLOB imgui_cpp "external/imgui/*.cpp")
 add_executable(
         ${PROJECT_NAME}
         ${source_files}
-        external/glfw/deps/glad_gl.c
+        external/glad/src/glad.c
         ${imgui_cpp}
         ${header_files}
 
@@ -27,7 +28,7 @@ add_executable(
 add_subdirectory(external/glfw)
 target_include_directories(${PROJECT_NAME} PUBLIC 
         external/glfw/include
-        external/glfw/deps
+        external/glad/include
         external/glm/glm
         external/Eigen
         external/stb_image
