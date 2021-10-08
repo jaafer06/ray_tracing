@@ -55,7 +55,7 @@ int main()
     glGenBuffers(1, &ssbo);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
     glBufferData(GL_SHADER_STORAGE_BUFFER, size * sizeof(float), data, GL_DYNAMIC_DRAW); //sizeof(data) only works for statically sized C/C++ arrays.
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, ssbo);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbo);
 
     // ---------------
     GLuint textureId;
@@ -68,7 +68,6 @@ int main()
     glTexParameteri(GL_TEXTURE_2D, GL_GENERATE_MIPMAP, GL_TRUE); // automatic mipmap
 
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_FLOAT, data);
-
 
     GLuint fboId;
     glGenFramebuffers(1, &fboId);
@@ -102,7 +101,9 @@ int main()
 
     while (!glfwWindowShouldClose(window))
     {
-        std::cout << data[0] << std::endl;
+        //std::cout << data[0] << std::endl;
+        glDispatchCompute((GLuint)width, (GLuint)height, 1);
+        glMemoryBarrier(GL_BUFFER_UPDATE_BARRIER_BIT);
 
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_FLOAT, data);
         glBlitFramebuffer(0, 0, width, height,         // src rect
@@ -110,15 +111,13 @@ int main()
             GL_COLOR_BUFFER_BIT,         // buffer mask
             GL_LINEAR);                  // scale filter
 
-        glDispatchCompute((GLuint)width, (GLuint)height, 1);
-        glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+
         using std::chrono::high_resolution_clock;
         using std::chrono::duration_cast;
         using std::chrono::duration;
         using std::chrono::milliseconds;
         auto t1 = high_resolution_clock::now();
 
-        //camera.render();
 
         auto t2 = high_resolution_clock::now();
         duration<double, std::milli> ms_double = t2 - t1;
