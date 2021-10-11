@@ -6,7 +6,7 @@
 #include <execution>
 #include <algorithm>
 #include <execution>
-#include "cpuVersion/scene.h"
+#include "cpu_version/scene.h"
 #include <random>
 #include <atomic>
 #include "utils.h"

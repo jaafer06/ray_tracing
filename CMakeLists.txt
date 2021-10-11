@@ -11,8 +11,8 @@ file(GLOB source_files
 
 file(GLOB header_files
         "src/*.h"
-        "src/cpuVersion/*.h"
-        "src/shader/*"
+        "src/gpu_version/*.h"
+        "src/cpu_version/*.h"
 )
 
 file(GLOB imgui_cpp "external/imgui/*.cpp")
