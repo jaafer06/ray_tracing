@@ -11,8 +11,7 @@
 
 using namespace std;
 
-GLuint LoadShaders(unsigned int type, const char* shader_file_path) {
-
+unsigned int CompileShader(unsigned int type, const char* shader_file_path) {
 	// Create the shaders
 	GLuint ShaderID = glCreateShader(type);
 
@@ -50,26 +49,57 @@ GLuint LoadShaders(unsigned int type, const char* shader_file_path) {
 		printf("%s\n", &ShaderIDErrorMessage[0]);
 	}
 
+	return ShaderID;
+}
+
+
+struct ProgramIDs {
+	const unsigned int ray_tracing;
+	const unsigned int converter;
+};
+
+ProgramIDs LoadShaders() {
+
+
+	unsigned int RayTracingShader = CompileShader(GL_COMPUTE_SHADER, "../src/shaders/RayTracing.glsl");
+
 	// Link the program
 	printf("Linking program\n");
-	GLuint ProgramID = glCreateProgram();
-	glAttachShader(ProgramID, ShaderID);
-	glLinkProgram(ProgramID);
+	GLuint RayTracingProgramID = glCreateProgram();
+	glAttachShader(RayTracingProgramID, RayTracingShader);
+	glLinkProgram(RayTracingProgramID);
 
 	// Check the program
-	glGetProgramiv(ProgramID, GL_LINK_STATUS, &Result);
-	glGetProgramiv(ProgramID, GL_INFO_LOG_LENGTH, &InfoLogLength);
+	int Result;
+	int InfoLogLength;
+	glGetProgramiv(RayTracingProgramID, GL_LINK_STATUS, &Result);
+	glGetProgramiv(RayTracingProgramID, GL_INFO_LOG_LENGTH, &InfoLogLength);
 	if (InfoLogLength > 0) {
 		std::vector<char> ProgramErrorMessage(InfoLogLength + 1);
-		glGetProgramInfoLog(ProgramID, InfoLogLength, NULL, &ProgramErrorMessage[0]);
+		glGetProgramInfoLog(RayTracingProgramID, InfoLogLength, NULL, &ProgramErrorMessage[0]);
 		printf("%s\n", &ProgramErrorMessage[0]);
 	}
 
 
-	glDetachShader(ProgramID, ShaderID);
-	glDeleteShader(ShaderID);
+	unsigned int ConvertShader = CompileShader(GL_COMPUTE_SHADER, "../src/shaders/PixelConversion.glsl");
+	GLuint ConverterProgramID = glCreateProgram();
+	glAttachShader(ConverterProgramID, ConvertShader);
+	printf("Linking program\n");
+	glLinkProgram(ConverterProgramID);
+	glGetProgramiv(ConverterProgramID, GL_LINK_STATUS, &Result);
+	glGetProgramiv(ConverterProgramID, GL_INFO_LOG_LENGTH, &InfoLogLength);
+	if (InfoLogLength > 0) {
+		std::vector<char> ProgramErrorMessage(InfoLogLength + 1);
+		glGetProgramInfoLog(ConverterProgramID, InfoLogLength, NULL, &ProgramErrorMessage[0]);
+		printf("%s\n", &ProgramErrorMessage[0]);
+	}
 
-	return ProgramID;
+	glDetachShader(RayTracingProgramID, RayTracingShader);
+	glDetachShader(ConverterProgramID, ConvertShader);
+	glDeleteShader(RayTracingShader);
+	glDeleteShader(ConvertShader);
+
+	return { RayTracingProgramID, ConverterProgramID};
 }
 
 

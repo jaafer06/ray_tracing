@@ -139,7 +139,9 @@
 #include <chrono>
 #include <random>
 #include "utils.h"
-#include "gpu_version/compute_shader.h"
+#include "gpu_version/ray_tracing_compute_shader.h"
+#include "gpu_version/conversion_compute_shader.h"
+
 #include <string>
 #include "gpu_version/camera.h"
 
@@ -165,14 +167,13 @@ static void error_callback(int error, const char* description)
 int main()
 {
 
-    unsigned int width = 1280;
-    unsigned int height = 720;
+    unsigned int width = 720;
+    unsigned int height = 480;
     unsigned int channels = 4;
     unsigned int size = width * height * channels;
 
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 4);
-
     glfwSetErrorCallback(error_callback);
     if (!glfwInit())
         exit(EXIT_FAILURE);
@@ -194,25 +195,46 @@ int main()
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
 
-    float* data = nullptr;
+    unsigned int* data = new unsigned int[size];
+    float* datafloat = new float[size];
 
-    //GLuint ssbo;
-    //glGenBuffers(1, &ssbo);
-    //glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
-    //glBufferData(GL_SHADER_STORAGE_BUFFER, size * sizeof(float), NULL, GL_DYNAMIC_DRAW); //sizeof(data) only works for statically sized C/C++ arrays.
-    //glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbo);
-
-    // ---------------
-    GLuint textureId;
-    glGenTextures(1, &textureId);
-    glBindTexture(GL_TEXTURE_2D, textureId);
+    GLuint floatTexture;
+    glGenTextures(1, &floatTexture);
+    glBindTexture(GL_TEXTURE_2D, floatTexture);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glGenerateMipmap(GL_TEXTURE_2D);
-    glBindImageTexture(0, textureId, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
+    glBindImageTexture(2, floatTexture, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
+
+    GLuint redChannel;
+    glGenTextures(1, &redChannel);
+    glBindTexture(GL_TEXTURE_2D, redChannel);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_R32UI, width, height, 0, GL_RGBA_INTEGER, GL_UNSIGNED_INT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glGenerateMipmap(GL_TEXTURE_2D);
+    glBindImageTexture(5, redChannel, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
 
 
+    GLuint greenChannel;
+    glGenTextures(1, &greenChannel);
+    glBindTexture(GL_TEXTURE_2D, greenChannel);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_R32UI, width, height, 0, GL_RGBA_INTEGER, GL_UNSIGNED_INT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glGenerateMipmap(GL_TEXTURE_2D);
+    glBindImageTexture(6, greenChannel, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
+
+    GLuint blueChannel;
+    glGenTextures(1, &blueChannel);
+    glBindTexture(GL_TEXTURE_2D, blueChannel);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_R32UI, width, height, 0, GL_RGBA_INTEGER, GL_UNSIGNED_INT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glGenerateMipmap(GL_TEXTURE_2D);
+    glBindImageTexture(7, blueChannel, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
+   
     GLuint fboId;
     glGenFramebuffers(1, &fboId);
     glBindFramebuffer(GL_FRAMEBUFFER, fboId);
@@ -220,38 +242,41 @@ int main()
     glFramebufferTexture2D(GL_FRAMEBUFFER,       // 1. fbo target: GL_FRAMEBUFFER
         GL_COLOR_ATTACHMENT0, // 2. attachment point
         GL_TEXTURE_2D,
-        textureId,            // 4. tex ID
+        floatTexture,            // 4. tex ID
         0);                   // 5. mipmap level: 0(base)
 
     glBindFramebuffer(GL_READ_FRAMEBUFFER, fboId); // src FBO (multi-sample)
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);     // dst FBO (single-sample)
 
-    // ------
     Camera camera{ width, height };
-    ComputeShader computeShader{ "../src/shaders/RayTracing.glsl", camera.data};
+    auto programIds = LoadShaders();
 
+    RayTracingComputeShader computeShader{camera, programIds.ray_tracing};
 
-    computeShader.compute(width, height, 1);
-    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
- 
 
     while (!glfwWindowShouldClose(window))
     {
-        //bufferdata[2] += 0.01;
-        //glBufferData(GL_UNIFORM_BUFFER, 17, bufferdata, GL_STATIC_DRAW); // allocate 152 bytes of memory
+
         using std::chrono::high_resolution_clock;
         using std::chrono::duration_cast;
         using std::chrono::duration;
         using std::chrono::milliseconds;
         auto t1 = high_resolution_clock::now();
 
+        //camera.move(Camera::Direction::FORWARD);
+        //computeShader.updateCameraCoordinates();
+
+        glClearTexImage(redChannel, 0, GL_RGBA_INTEGER, GL_UNSIGNED_INT, NULL);
+        glClearTexImage(greenChannel, 0, GL_RGBA_INTEGER, GL_UNSIGNED_INT, NULL);
+        glClearTexImage(blueChannel, 0, GL_RGBA_INTEGER, GL_UNSIGNED_INT, NULL);
 
 
+        computeShader.compute(width, height, 1);
+        glMemoryBarrier(GL_ALL_BARRIER_BITS);
+        glUseProgram(programIds.converter);
         glDispatchCompute((GLuint)width, (GLuint)height, 1);
-        glMemoryBarrier(GL_BUFFER_UPDATE_BARRIER_BIT);
- 
+        glMemoryBarrier(GL_ALL_BARRIER_BITS);
 
-        
         glBlitFramebuffer(0, 0, width, height,         // src rect
             0, 0, width, height,         // dst rect
             GL_COLOR_BUFFER_BIT,         // buffer mask

@@ -4,7 +4,11 @@
 
 class Camera {
 public:
-	Camera(unsigned int width, unsigned int height, float focalLength = 1) {
+	enum class Direction {
+		FORWARD, BACKWARD, RIGHT, LEFT
+	};
+
+	Camera(unsigned int width, unsigned int height, float focalLength = 1): focalLength(focalLength) {
 		memset(data, 0, sizeof(data));
 
 		setCameraPosition({ 1, 0, 6 });
@@ -13,10 +17,9 @@ public:
 		setUpDirection({ 0, 1 , 0 });
 		setRightDirection({ 1, 0, 0 });
 
-		float worldWidth = width * (1 / sqrt(width * height));
-		float worldHeight = height * (1 / sqrt(width * height));
-		float worldStep = worldWidth / width;
-		setWorldStep(worldStep);
+		worldWidth = width * (1 / sqrt(width * height));
+		worldHeight = height * (1 / sqrt(width * height));
+		setWorldStep(worldWidth / width);
 		setUpperLeft(Vector3f{ -worldWidth / 2, worldHeight / 2, -focalLength } + getCameraPosition());
 
 		//for (int index = 0; index < dataSize; ++index) {
@@ -67,7 +70,7 @@ public:
 	}
 
 	float getWorldStep() {
-		return data[20];
+		return data[19];
 	}
 
 	void setWorldStep(float worldStep) {
@@ -80,9 +83,39 @@ public:
 		}
 	}
 
+	void rotate(float horizontal, float vertical) {
+		const auto rotation = (Eigen::AngleAxisf(horizontal, getUpDirection()) * Eigen::AngleAxisf(vertical, getRightDirection())).toRotationMatrix();
+		setUpDirection(rotation * getUpDirection());
+		setRightDirection(rotation * getRightDirection());
+		setCameraDirection(rotation * getCameraDirection());
+		setUpperLeft((-worldWidth / 2 * getRightDirection()) + (worldHeight / 2 * getUpDirection()) + getCameraDirection()* focalLength + getCameraPosition());
+	}
+
+	void move(Direction direction) {
+		switch (direction)
+		{
+		case Direction::FORWARD:
+			setCameraPosition(getCameraPosition() + getCameraDirection() * 0.2);
+			break;
+		case Direction::BACKWARD:
+			setCameraPosition(getCameraPosition() - getCameraDirection() * 0.2);
+			break;
+		case Direction::RIGHT:
+			setCameraPosition(getCameraPosition() + getRightDirection() * 0.2);
+			break;
+		case Direction::LEFT:
+			setCameraPosition(getCameraPosition() - getRightDirection() * 0.2);
+			break;
+		default:
+			break;
+		}
+		setUpperLeft((-worldWidth / 2 * getRightDirection()) + (worldHeight / 2 * getUpDirection()) + getCameraDirection() * focalLength + getCameraPosition());
+	}
+	
 	constexpr static unsigned int dataSize = 21;
 
 	float data[dataSize];
-
+	float worldWidth, worldHeight;
+	float focalLength;
 private:
 };
