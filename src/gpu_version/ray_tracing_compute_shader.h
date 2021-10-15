@@ -1,8 +1,10 @@
-#pragma once
+﻿#pragma once
 #include <string>
 #include "gpu_version/loadShader.h"
 #include "glad/glad.h"
 #include "gpu_version/camera.h"
+#include "gpu_version/shape.h"
+#include <vector>
 
 class RayTracingComputeShader {
 public:
@@ -10,46 +12,23 @@ public:
 	RayTracingComputeShader(Camera& camera, unsigned int programID) 
 			: programID (programID), camera(camera) {
 
-		glUseProgram(programID);
-		int location = glGetUniformLocation(programID, "cameraPosition");
-		glUniform3fv(location, 1, camera.getCameraPosition().data());
-		location = glGetUniformLocation(programID, "cameraDirection");
-		glUniform3fv(location, 1, camera.getCameraDirection().data());
+		glGenBuffers(1, &cameraPositionBuffer);
+		glBindBuffer(GL_SHADER_STORAGE_BUFFER, cameraPositionBuffer);
+		glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(float) * camera.dataSize, camera.data, GL_DYNAMIC_DRAW);
+		glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, cameraPositionBuffer);
+		glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0); // unbind
 
-		location = glGetUniformLocation(programID, "upperLeft");
-		glUniform3fv(location, 1, camera.getUpperLeft().data());
-
-		location = glGetUniformLocation(programID, "up");
-		glUniform3fv(location, 1, camera.getUpDirection().data());
-
-		location = glGetUniformLocation(programID, "right");
-		glUniform3fv(location, 1, camera.getRightDirection().data());
-
-		location = glGetUniformLocation(programID, "worldStep");
-		glUniform1f(location, camera.getWorldStep());
+		glGenBuffers(1, &shapesBuffer);
+		glBindBuffer(GL_SHADER_STORAGE_BUFFER, shapesBuffer);
+		glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(Shape) * shapes.size(), shapes.data(), GL_DYNAMIC_DRAW); //sizeof(data) only works for statically sized C/C++ arrays.
+		glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, shapesBuffer);
+		glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0); // unbind
 
 	}
 
-	void updateCameraCoordinates() {
-		glUseProgram(programID);
-		int location = glGetUniformLocation(programID, "cameraPosition");
-		glUniform3fv(location, 1, camera.getCameraPosition().data());
-
-		location = glGetUniformLocation(programID, "cameraDirection");
-		glUniform3fv(location, 1, camera.getCameraDirection().data());
-
-		location = glGetUniformLocation(programID, "upperLeft");
-		glUniform3fv(location, 1, camera.getUpperLeft().data());
-
-		location = glGetUniformLocation(programID, "up");
-		glUniform3fv(location, 1, camera.getUpDirection().data());
-
-		location = glGetUniformLocation(programID, "right");
-		glUniform3fv(location, 1, camera.getRightDirection().data());
-
-		location = glGetUniformLocation(programID, "worldStep");
-		glUniform1f(location, camera.getWorldStep());
-
+	void updateCameraBuffer() {
+		glBindBuffer(GL_SHADER_STORAGE_BUFFER, cameraPositionBuffer);
+		glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(float) * camera.dataSize, camera.data, GL_DYNAMIC_DRAW);
 	}
 
 	void compute(unsigned int x, unsigned int y, unsigned int z) {
@@ -57,11 +36,19 @@ public:
 		glDispatchCompute(x, y, z);
 	}
 
-	void setUniform(std::string&& name) {
-
+	void updateShapeBuffer() {
+		glUseProgram(programID);
+		glBindBuffer(GL_SHADER_STORAGE_BUFFER, shapesBuffer);
+		glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(Shape) * shapes.size(), shapes.data(), GL_DYNAMIC_DRAW);
+		int location = glGetUniformLocation(programID, "shapeCount");
+		glUniform1ui(location, unsigned int(shapes.size()));
 	}
+
+	std::vector<Shape> shapes;
 
 private:
 	unsigned int uniformsBuffer;
 	Camera& camera;
+	unsigned int shapesBuffer;
+	unsigned int cameraPositionBuffer;
 };

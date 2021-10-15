@@ -6,12 +6,40 @@ layout(binding = 5, r32ui) uniform uimage2D red;
 layout(binding = 6, r32ui) uniform uimage2D green;
 layout(binding = 7, r32ui) uniform uimage2D blue;
 
-uniform vec3 cameraPosition;
-uniform vec3 cameraDirection;
-uniform vec3 upperLeft;
-uniform vec3 up;
-uniform vec3 right;
-uniform float worldStep;
+
+layout(std430, binding = 2) buffer pixelBuffer
+{
+	uint pixels[];
+};
+
+layout(std430, binding = 1) buffer cameraBuffer
+{
+	vec3 cameraPosition;
+	vec3 cameraDirection;
+	vec3 upperLeft;
+	vec3 up;
+	vec3 right;
+	float worldStep;
+};
+
+struct Material {
+	vec3 color;
+	uint type;
+	float[4] data;
+};
+
+struct Shape {
+	mat4 transformation;
+	uint type;
+	float[11] data;
+	Material material;
+};
+
+uniform uint shapeCount;
+layout(std430, binding = 0) buffer shapeBuffer
+{
+	Shape shapes[];
+};
 
 struct Ray {
 	vec3 origin;
@@ -31,6 +59,10 @@ bool hitSphere(in Ray r, in Sphere sphere) {
 	float discriminant = b * b - c;
 	return discriminant > 0;
 };
+
+//vec3 hit(in Shape shape, in Ray ray) {
+//
+//}
 
 
 vec3 ray_color(in Ray ray, in Sphere[2] spheres, uint depth) {
@@ -60,9 +92,20 @@ void main() {
 
 	vec3 colorf = ray_color(ray, spheres, 0);
 	uvec4 color = uvec4(255 * vec4(colorf, 1.));
+	//imageAtomicAdd(red, ivec2(gl_WorkGroupID.xy), color.x);
+	//imageAtomicAdd(green, ivec2(gl_WorkGroupID.xy), color.y);
+	//imageAtomicAdd(blue, ivec2(gl_WorkGroupID.xy), color.z);
 
-	imageAtomicAdd(red, ivec2(gl_WorkGroupID.xy), color.x);
-	imageAtomicAdd(green, ivec2(gl_WorkGroupID.xy), color.y);
-	imageAtomicAdd(blue, ivec2(gl_WorkGroupID.xy), color.z);
+	uint index = 4 *gl_WorkGroupID.x + 4 * gl_NumWorkGroups.x * gl_WorkGroupID.y;
+	atomicAdd(pixels[index], color.x);
+	atomicAdd(pixels[index+1], color.y);
+	atomicAdd(pixels[index+2], color.z);
 
+	//Shape s = shapes[0];
+
+	//uvec4 c = uvec4(shapeCount * 100, 0, 0, 0);
+
+	//imageAtomicAdd(red, ivec2(gl_WorkGroupID.xy), c.x);
+	//imageAtomicAdd(green, ivec2(gl_WorkGroupID.xy), c.y);
+	//imageAtomicAdd(blue, ivec2(gl_WorkGroupID.xy), c.z);
 }
