@@ -34,13 +34,17 @@ static void error_callback(int error, const char* description)
     fprintf(stderr, "Error: %s\n", description);
 }
 
+static bool cameraMode = false;
+constexpr static unsigned int width = 720;
+constexpr static unsigned int height = 480;
+constexpr static unsigned int channels = 4;
+constexpr static unsigned int pixelCount = width * height * channels;
+static Camera* globalCamera;
+void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
+void mouse_callback(GLFWwindow* window, double xpos, double ypos);
+
 int main()
 {
-
-    constexpr unsigned int width = 720;
-    constexpr unsigned int height = 480;
-    constexpr unsigned int channels = 4;
-    constexpr unsigned int size = width * height * channels;
 
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 4);
@@ -54,7 +58,7 @@ int main()
         glfwTerminate();
         exit(EXIT_FAILURE);
     }
-
+    glfwSetInputMode(window, GLFW_STICKY_KEYS, GLFW_TRUE);
     glfwMakeContextCurrent(window);
     glfwSwapInterval(1);
     gladLoadGL();
@@ -80,19 +84,24 @@ int main()
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 
     Camera camera{ width, height };
+    globalCamera = &camera;
+    glfwSetCursorPosCallback(window, mouse_callback);
+    glfwSetKeyCallback(window, key_callback);
     auto programIds = LoadShaders();
     RayTracingComputeShader computeShader{camera, programIds.ray_tracing};
     int timeLocation = glGetUniformLocation(programIds.ray_tracing, "time");
-    computeShader.shapes.push_back(Circle({ 0, 3, -10 }, 1, Lambertian{ { 0, 1, 0 } }));
+    computeShader.shapes.push_back(Circle({ 1, 3, -10 }, 1, Lambertian{ { 0, 1, 0 } }));
     computeShader.shapes.push_back(Circle({ 0, 0, -4 }, 0.5, Lambertian{ { 0.8, 0.8, 0} }));
     computeShader.shapes.push_back(Circle({ 1.5, 0, -3 }, 1.1, Lambertian{ {  0.5, 0, 0  } }));
     computeShader.shapes.push_back(Circle({ 0, -94, -40 }, 100, Lambertian{ { 0.3, 0.9, 0.7 } }));
+    //computeShader.shapes.push_back(Box({ 3, 2, -4.5 }, { 1, 2, 1 }, Lambertian{ { 0, 1, 1 } }));
+    //computeShader.shapes.push_back(Box({ -1, 1, -2 }, { 2, 1, 1 }, Lambertian{ { 0.3, 0.9, 0.7 } }));
 
     computeShader.updateShapeBuffer();
     unsigned int pixelBuffer;
     glGenBuffers(1, &pixelBuffer);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, pixelBuffer);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(unsigned int) * size, NULL, GL_DYNAMIC_DRAW);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(unsigned int) * pixelCount, NULL, GL_DYNAMIC_DRAW);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, pixelBuffer);
 
     int workGroupSizes[3] = { 0 };
@@ -117,8 +126,7 @@ int main()
         glUseProgram(programIds.ray_tracing);
         glUniform1f(timeLocation, time/1000);
 
-        //camera.move(Camera::Direction::FORWARD);
-        //computeShader.updateCameraBuffer();
+        computeShader.updateCameraBuffer();
 
         computeShader.compute(width, height, 1);
         glMemoryBarrier(GL_ALL_BARRIER_BITS);
@@ -140,4 +148,36 @@ int main()
 
     }
     return 0;
+}
+
+void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
+{
+    if (key == GLFW_KEY_C && action == GLFW_PRESS) {
+        cameraMode = !cameraMode;
+    }
+    if (cameraMode) {
+        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+        if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+            globalCamera->move(Camera::Direction::FORWARD);
+        if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+            globalCamera->move(Camera::Direction::BACKWARD);
+        if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+            globalCamera->move(Camera::Direction::LEFT);
+        if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+            globalCamera->move(Camera::Direction::RIGHT);
+    } else {
+        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+    }
+}
+
+void mouse_callback(GLFWwindow* window, double xpos, double ypos) {
+    if (cameraMode) {
+        glfwSetCursorPos(window, width / 2, height / 2);
+        float horizontalAngle = 0.002 * float(width / 2 - xpos);
+        float verticalAngle = 0.002 * float(height / 2 - ypos);
+        horizontalAngle = abs(horizontalAngle) > 0.01 ? horizontalAngle : 0;
+        verticalAngle = abs(verticalAngle) > 0.01 ? verticalAngle : 0;
+        globalCamera->rotate(horizontalAngle, verticalAngle);
+    }
+
 }

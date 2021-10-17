@@ -1,6 +1,9 @@
 #pragma once
 #include "Eigen/Dense"
 #include <array>
+#include "glad/glad.h"
+#include <functional>
+#include "GLFW/glfw3.h"
 
 class Camera {
 public:
@@ -8,12 +11,12 @@ public:
 		FORWARD, BACKWARD, RIGHT, LEFT
 	};
 
-	Camera(unsigned int width, unsigned int height, float focalLength = 1): focalLength(focalLength) {
+	Camera(unsigned int width, unsigned int height, float focalLength = 1) : focalLength(focalLength) {
 		memset(data, 0, sizeof(data));
 
 		setCameraPosition({ 1, 0, 6 });
 		setCameraDirection({ 0, 0, -1 });
-		
+
 		setUpDirection({ 0, 1 , 0 });
 		setRightDirection({ 1, 0, 0 });
 
@@ -22,10 +25,6 @@ public:
 		setWorldStep(worldWidth / width);
 		setUpperLeft(Vector3f{ -worldWidth / 2, worldHeight / 2, -focalLength } + getCameraPosition());
 
-		//for (int index = 0; index < dataSize; ++index) {
-		//	data[index] = 1;
-		//}
-	
 	}
 
 	const Eigen::Vector3f getCameraPosition() {
@@ -37,36 +36,36 @@ public:
 	}
 
 	const Eigen::Vector3f getCameraDirection() {
-		return Eigen::Map<const Eigen::Vector3f>(data+4);
+		return Eigen::Map<const Eigen::Vector3f>(data + 4);
 	}
 
 	void setCameraDirection(Eigen::Vector3f&& direction) {
-		Eigen::Map<Eigen::Vector3f>(data+4).array() = direction;
+		Eigen::Map<Eigen::Vector3f>(data + 4).array() = direction;
 	}
 
 	const Eigen::Vector3f getUpperLeft() {
-		return Eigen::Map<const Eigen::Vector3f>(data+8);
+		return Eigen::Map<const Eigen::Vector3f>(data + 8);
 	}
 
 	void setUpperLeft(Eigen::Vector3f&& vector) {
-		Eigen::Map<Eigen::Vector3f>(data+8).array() = vector;
+		Eigen::Map<Eigen::Vector3f>(data + 8).array() = vector;
 	}
 
 
 	const Eigen::Vector3f getUpDirection() {
-		return Eigen::Map<const Eigen::Vector3f>(data+12);
+		return Eigen::Map<const Eigen::Vector3f>(data + 12);
 	}
 
 	void setUpDirection(Eigen::Vector3f&& vector) {
-		Eigen::Map<Eigen::Vector3f>(data+12).array() = vector;
+		Eigen::Map<Eigen::Vector3f>(data + 12).array() = vector;
 	}
 
 	const Eigen::Vector3f getRightDirection() {
-		return Eigen::Map<const Eigen::Vector3f>(data+16);
+		return Eigen::Map<const Eigen::Vector3f>(data + 16);
 	}
 
 	void setRightDirection(Eigen::Vector3f&& vector) {
-		Eigen::Map<Eigen::Vector3f>(data+16).array() = vector;
+		Eigen::Map<Eigen::Vector3f>(data + 16).array() = vector;
 	}
 
 	float getWorldStep() {
@@ -88,7 +87,7 @@ public:
 		setUpDirection(rotation * getUpDirection());
 		setRightDirection(rotation * getRightDirection());
 		setCameraDirection(rotation * getCameraDirection());
-		setUpperLeft((-worldWidth / 2 * getRightDirection()) + (worldHeight / 2 * getUpDirection()) + getCameraDirection()* focalLength + getCameraPosition());
+		setUpperLeft((-worldWidth / 2 * getRightDirection()) + (worldHeight / 2 * getUpDirection()) + getCameraDirection() * focalLength + getCameraPosition());
 	}
 
 	void move(Direction direction) {
@@ -111,11 +110,12 @@ public:
 		}
 		setUpperLeft((-worldWidth / 2 * getRightDirection()) + (worldHeight / 2 * getUpDirection()) + getCameraDirection() * focalLength + getCameraPosition());
 	}
-	
+
 	constexpr static unsigned int dataSize = 21;
 
 	float data[dataSize];
 	float worldWidth, worldHeight;
 	float focalLength;
+	bool cameraMode = false;
 private:
 };

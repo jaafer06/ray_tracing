@@ -40,7 +40,8 @@ public:
 
 class Box : public Shape {
 public:
-	Box(Eigen::Vector3f&& translation, Material& material) : Shape(1, material) {
-		transformation.block<3, 1>(0, 3) = translation;
+	Box(Eigen::Vector3f&& translation, Eigen::Vector3f&& sides, Material& material) : Shape(1, material) {
+		transformation.block<3,3>(0, 0).diagonal() = 1/sides.array();
+		transformation.block<3, 1>(0, 3) = transformation.block<3, 3>(0, 0) * -translation;
 	}
 };

@@ -82,11 +82,35 @@ vec3 sphereNormalAt(in Shape sphere, in vec3 p) {
 	return normalize(p - sphere.transformation[3].xyz);
 }
 
+float hitBox(in Shape box, in Ray ray) {
+	ray.origin = (box.transformation * vec4(ray.origin, 1)).xyz;
+	ray.direction = (box.transformation * vec4(ray.direction, 1)- box.transformation[3]).xyz;
+
+	vec3 sign = sign(ray.origin);
+	vec3 t = (0.5 - ray.origin * sign)/ (sign * ray.direction);
+	float minDistance = inf;
+	for (uint index = 0; index < 3; ++index) {
+		vec3 inPoint = ray.origin + ray.direction * t[index];
+		vec3 inPoint_abs = abs(inPoint);
+		float infNorm = max(inPoint_abs[0], max(inPoint_abs[1], inPoint_abs[2]));
+		if (infNorm < 0.5001 && infNorm > 0.4999 && minDistance > t[index]) {
+			minDistance = t[index];
+		}
+	}
+	return minDistance;
+
+};
+
+vec3 boxNormalAt(in Shape box, in vec3 p) {
+	p = (box.transformation * vec4(p, 1)).xyz;
+	return normalize(step(vec3(0.499, 0.499, 0.499), abs(p)) * sign(p));
+}
+
 float hit(in Shape shape, in Ray ray) {
 	if (shape.type == 0) {
 		return hitSphere(shape, ray);
 	} else if (shape.type == 1) {
-		return -1;
+		return hitBox(shape, ray);
 	}
 	return -1;
 }
@@ -96,7 +120,7 @@ vec3 normalAt(in Shape shape, in vec3 p) {
 		return sphereNormalAt(shape, p);
 	}
 	else if (shape.type == 1) {
-		return vec3(1);
+		return boxNormalAt(shape, p);
 	}
 	return vec3(1);
 }
@@ -131,18 +155,14 @@ vec3 ray_color(inout Ray ray, uint maxDepth, in vec2 seed) {
 		ray.origin = distance * ray.direction + ray.origin;
 		ray.direction = normalize(normalAt(shapes[index], ray.origin) + randomOnUnitSphere(seed + 10*depth));
 		result = result * pow(0.8, depth+1) * shapes[index].material.color;
-
 	}
 	
 	return vec3(0, 0, 0);
 };
 
-/*vec3 normal = normalAt(shapes[index], ray.origin);
-		ray.origin = t * ray.direction + ray.origin;
-		ray.direction = normal + (randomOnUnitSphere(seed));*/
 
 void main() {
-	vec2 seed = vec2(time) + gl_GlobalInvocationID.xy;
+	vec2 seed = vec2(time) + (vec2(gl_GlobalInvocationID.xy) / vec2(gl_NumWorkGroups.xy));
 	vec3 pixelCoordinate = upperLeft + worldStep * gl_WorkGroupID.x * right - worldStep * gl_WorkGroupID.y * up;
 	float gridStep = worldStep / (size+1);
 	vec3 rayOrigin = pixelCoordinate + gridStep * (gl_LocalInvocationID.x+1) * right - gridStep * (gl_LocalInvocationID.y+1) * up;
@@ -152,7 +172,7 @@ void main() {
 	vec3 colorf = ray_color(ray, 50, seed);
 	uvec4 color = uvec4(255 * vec4(colorf, 1.));
 
-	uint index = 4 * (gl_NumWorkGroups.x * gl_NumWorkGroups.y - (gl_WorkGroupID.x + gl_NumWorkGroups.x * gl_WorkGroupID.y));
+	uint index = 4 * (gl_NumWorkGroups.x * gl_NumWorkGroups.y - ((gl_NumWorkGroups.x - gl_WorkGroupID.x) + gl_NumWorkGroups.x * gl_WorkGroupID.y));
 	atomicAdd(pixels[index], color.x);
 	atomicAdd(pixels[index+1], color.y);
 	atomicAdd(pixels[index+2], color.z);
