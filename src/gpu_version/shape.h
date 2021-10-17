@@ -24,7 +24,7 @@ protected:
 		transformation(Eigen::Matrix4f::Identity()), type(type), material(material){
 	}
 public:
-	Eigen::Matrix<float,4,4,RowMajor> transformation;
+	Eigen::Matrix<float,4,4,ColMajor> transformation;
 	unsigned int type;
 	float data[11]{};
 	Material material;
@@ -32,8 +32,9 @@ public:
 
 class Circle : public Shape {
 public:
-	Circle(Eigen::Vector3f&& translation, Material& material): Shape(1, material) {
+	Circle(Eigen::Vector3f&& translation, float radius, Material& material): Shape(0, material) {
 		transformation.block<3, 1>(0, 3) = translation;
+		transformation(0, 0) = radius;
 	}
 };
 

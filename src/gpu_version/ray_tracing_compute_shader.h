@@ -11,7 +11,7 @@ public:
 	const unsigned int programID;
 	RayTracingComputeShader(Camera& camera, unsigned int programID) 
 			: programID (programID), camera(camera) {
-
+		glUseProgram(programID);
 		glGenBuffers(1, &cameraPositionBuffer);
 		glBindBuffer(GL_SHADER_STORAGE_BUFFER, cameraPositionBuffer);
 		glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(float) * camera.dataSize, camera.data, GL_DYNAMIC_DRAW);
@@ -47,7 +47,6 @@ public:
 	std::vector<Shape> shapes;
 
 private:
-	unsigned int uniformsBuffer;
 	Camera& camera;
 	unsigned int shapesBuffer;
 	unsigned int cameraPositionBuffer;
