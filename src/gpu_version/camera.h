@@ -14,7 +14,7 @@ public:
 	Camera(unsigned int width, unsigned int height, float focalLength = 1) : focalLength(focalLength) {
 		memset(data, 0, sizeof(data));
 
-		setCameraPosition({ 1, 0, 6 });
+		setCameraPosition({ 1, 1, 6 });
 		setCameraDirection({ 0, 0, -1 });
 
 		setUpDirection({ 0, 1 , 0 });

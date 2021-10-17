@@ -145,16 +145,20 @@ vec3 ray_color(inout Ray ray, uint maxDepth, in vec2 seed) {
 	for (uint depth = 0; depth < maxDepth; ++depth) {
 		getClosestShapeIndex(ray, distance, index);
 		if (index == -1) {
-			if (depth == 0) {
-				float t = (upperLeft.y - ray.origin.y);
-				return (1.0 - t)* vec3(1.0, 1.0, 1.0) + t * vec3(0.5, 0.7, 1.0);
-			}
+			//if (depth == 0) {
+			//	float t = (upperLeft.y - ray.origin.y);
+			//	return (1.0 - t)* vec3(1.0, 1.0, 1.0) + t * vec3(0.5, 0.7, 1.0);
+			//}
 			//result = result / max(result.x, max(result.x, result.z));
-			return result;
+			//return result;
+			return vec3(0, 0, 0);
+		}
+		if (shapes[index].material.type == 0) {
+			return result * shapes[index].material.color;
 		}
 		ray.origin = distance * ray.direction + ray.origin;
 		ray.direction = normalize(normalAt(shapes[index], ray.origin) + randomOnUnitSphere(seed + 10*depth));
-		result = result * pow(0.8, depth+1) * shapes[index].material.color;
+		result = result  * shapes[index].material.color;
 	}
 	
 	return vec3(0, 0, 0);

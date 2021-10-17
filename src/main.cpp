@@ -15,7 +15,6 @@
 #include <vector>
 #include <gpu_version/shape.h>
 
-
 void GLAPIENTRY
 MessageCallback(GLenum source,
     GLenum type,
@@ -94,9 +93,8 @@ int main()
     computeShader.shapes.push_back(Circle({ 0, 0, -4 }, 0.5, Lambertian{ { 0.8, 0.8, 0} }));
     computeShader.shapes.push_back(Circle({ 1.5, 0, -3 }, 1.1, Lambertian{ {  0.5, 0, 0  } }));
     computeShader.shapes.push_back(Circle({ 0, -94, -40 }, 100, Lambertian{ { 0.3, 0.9, 0.7 } }));
-    //computeShader.shapes.push_back(Box({ 3, 2, -4.5 }, { 1, 2, 1 }, Lambertian{ { 0, 1, 1 } }));
-    //computeShader.shapes.push_back(Box({ -1, 1, -2 }, { 2, 1, 1 }, Lambertian{ { 0.3, 0.9, 0.7 } }));
-
+    computeShader.shapes.push_back(Box({ 3, 2, -4.5 }, { 1, 2, 1 }, Lambertian{ { 0, 1, 1 } }));
+    computeShader.shapes.push_back(Box({ -1, 2.5, -2 }, { 1, 1, 1 }, Light{ { 10, 10, 10 } }));
     computeShader.updateShapeBuffer();
     unsigned int pixelBuffer;
     glGenBuffers(1, &pixelBuffer);
@@ -116,7 +114,7 @@ int main()
     int max;
     glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT, 0, &max);
     auto start = std::chrono::high_resolution_clock::now();
-  
+
 
     while (!glfwWindowShouldClose(window))
     {
@@ -134,11 +132,7 @@ int main()
         glDispatchCompute((GLuint)width, (GLuint)height, 1);
         glMemoryBarrier(GL_ALL_BARRIER_BITS);
 
-        glBlitFramebuffer(0, 0, width, height,         // src rect
-            0, 0, width, height,         // dst rect
-            GL_COLOR_BUFFER_BIT,         // buffer mask
-            GL_LINEAR);                  // scale filter
-
+        glBlitFramebuffer(0, 0, width, height, 0, 0, width, height, GL_COLOR_BUFFER_BIT, GL_LINEAR);
         glfwPollEvents();
         glfwSwapBuffers(window);
         auto t2 = std::chrono::high_resolution_clock::now();

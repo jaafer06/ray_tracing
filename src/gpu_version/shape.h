@@ -18,6 +18,13 @@ public:
 	}
 };
 
+class Light: public Material {
+public:
+	Light(Eigen::Vector3f&& color) : Material(0) {
+		this->color = color;
+	}
+};
+
 class Shape {
 protected:
 	Shape(unsigned int type, Material& material):
