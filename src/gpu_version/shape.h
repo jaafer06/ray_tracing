@@ -11,6 +11,13 @@ public:
 	float data[4]{};
 };
 
+class Light : public Material {
+public:
+	Light(Eigen::Vector3f&& color) : Material(0) {
+		this->color = color;
+	}
+};
+
 class Lambertian: public Material {
 public:
 	Lambertian(Eigen::Vector3f&& color) : Material(1) {
@@ -18,10 +25,11 @@ public:
 	}
 };
 
-class Light: public Material {
+class Metal: public Material {
 public:
-	Light(Eigen::Vector3f&& color) : Material(0) {
+	Metal(Eigen::Vector3f&& color, float refraction = 1) : Material(2) {
 		this->color = color;
+		data[0] = refraction;
 	}
 };
 

@@ -5,6 +5,9 @@
 
 layout(local_size_x = size, local_size_y = size, local_size_z=1) in;
 
+uniform float time;
+vec2 seed = vec2(time) + (vec2(gl_GlobalInvocationID.xy) / vec2(gl_NumWorkGroups.xy));
+
 layout(std430, binding = 2) buffer pixelBuffer
 {
 	uint pixels[];
@@ -20,15 +23,16 @@ layout(std430, binding = 1) buffer cameraBuffer
 	float worldStep;
 };
 
-float random(in vec2 st) {
-	return fract(sin(dot(st.xy, vec2(12.9898, 78.233))) * 43758.5453123);
+float random() {
+	seed += 1;
+	return fract(sin(dot(seed.xy, vec2(12.9898, 78.233))) * 43758.5453123);
 }
 
-vec3 randomOnUnitSphere(in vec2 st) {
-	float u1 = random(st);
-	float u2 = random(st+1);
-	float u3 = random(st+2);
-	float u4 = random(st+3);
+vec3 randomOnUnitSphere() {
+	float u1 = random();
+	float u2 = random();
+	float u3 = random();
+	float u4 = random();
 	float n1 = sqrt(-2 * log(u1)) * cos(2 * pi * u2);
 	float n2 = sqrt(-2 * log(u1)) * sin(2 * pi * u2);
 	float n3 = sqrt(-2 * log(u3)) * cos(2 * pi * u4);
@@ -48,8 +52,8 @@ struct Shape {
 	Material material;
 };
 
-uniform float time;
 uniform uint shapeCount;
+
 layout(std430, binding = 0) buffer shapeBuffer
 {
 	Shape shapes[];
@@ -65,6 +69,22 @@ struct Sphere {
 	float radius;
 	vec3 color;
 };
+
+//bool Scatter(in Material material, in vec3 normal, in vec2 seed, out vec3 rayDirection) {
+//	if (material.type == 0) {
+//		return false;
+//	} else if (material.type ==1) {
+//		return lambertianScatter(material, normal, seed, rayDirection);
+//	} else if (material.type == 2) {
+//		return metalScatter(material, normal, seed, rayDirection);
+//	}
+//}
+//
+//bool lambertianScatter(in Material material, in vec3 normal, in vec2 seed, out vec3 rayDirection) {
+//	rayDirection = normal + randomOnUnitSphere(seed + 10 * depth);
+//	
+//}
+
 
 float hitSphere(in Shape sphere, in Ray ray) {
 	vec3 oc = ray.origin - sphere.transformation[3].xyz;
@@ -137,7 +157,7 @@ void getClosestShapeIndex(in Ray ray, out float distance, out int index) {
 	}
 }
 
-vec3 ray_color(inout Ray ray, uint maxDepth, in vec2 seed) {
+vec3 ray_color(inout Ray ray, uint maxDepth) {
 	vec3 result = vec3(1, 1, 1);
 
 	float distance;
@@ -157,7 +177,7 @@ vec3 ray_color(inout Ray ray, uint maxDepth, in vec2 seed) {
 			return result * shapes[index].material.color;
 		}
 		ray.origin = distance * ray.direction + ray.origin;
-		ray.direction = normalize(normalAt(shapes[index], ray.origin) + randomOnUnitSphere(seed + 10*depth));
+		ray.direction = normalize(normalAt(shapes[index], ray.origin) + randomOnUnitSphere());
 		result = result  * shapes[index].material.color;
 	}
 	
@@ -166,14 +186,13 @@ vec3 ray_color(inout Ray ray, uint maxDepth, in vec2 seed) {
 
 
 void main() {
-	vec2 seed = vec2(time) + (vec2(gl_GlobalInvocationID.xy) / vec2(gl_NumWorkGroups.xy));
 	vec3 pixelCoordinate = upperLeft + worldStep * gl_WorkGroupID.x * right - worldStep * gl_WorkGroupID.y * up;
 	float gridStep = worldStep / (size+1);
 	vec3 rayOrigin = pixelCoordinate + gridStep * (gl_LocalInvocationID.x+1) * right - gridStep * (gl_LocalInvocationID.y+1) * up;
 	vec3 rayDirection = normalize(rayOrigin - cameraPosition);
 	Ray ray = Ray(rayOrigin, rayDirection);
 
-	vec3 colorf = ray_color(ray, 50, seed);
+	vec3 colorf = ray_color(ray, 50);
 	uvec4 color = uvec4(255 * vec4(colorf, 1.));
 
 	uint index = 4 * (gl_NumWorkGroups.x * gl_NumWorkGroups.y - ((gl_NumWorkGroups.x - gl_WorkGroupID.x) + gl_NumWorkGroups.x * gl_WorkGroupID.y));

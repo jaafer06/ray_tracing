@@ -34,8 +34,8 @@ static void error_callback(int error, const char* description)
 }
 
 static bool cameraMode = false;
-constexpr static unsigned int width = 720;
-constexpr static unsigned int height = 480;
+constexpr static unsigned int width = 1080;
+constexpr static unsigned int height = 720;
 constexpr static unsigned int channels = 4;
 constexpr static unsigned int pixelCount = width * height * channels;
 static Camera* globalCamera;
@@ -89,12 +89,16 @@ int main()
     auto programIds = LoadShaders();
     RayTracingComputeShader computeShader{camera, programIds.ray_tracing};
     int timeLocation = glGetUniformLocation(programIds.ray_tracing, "time");
+    computeShader.shapes.push_back(Box({ -1, 2.5, -2 }, { 1, 1, 1 }, Light{ { 10, 10, 10 } }));
+
     computeShader.shapes.push_back(Circle({ 1, 3, -10 }, 1, Lambertian{ { 0, 1, 0 } }));
     computeShader.shapes.push_back(Circle({ 0, 0, -4 }, 0.5, Lambertian{ { 0.8, 0.8, 0} }));
     computeShader.shapes.push_back(Circle({ 1.5, 0, -3 }, 1.1, Lambertian{ {  0.5, 0, 0  } }));
     computeShader.shapes.push_back(Circle({ 0, -94, -40 }, 100, Lambertian{ { 0.3, 0.9, 0.7 } }));
     computeShader.shapes.push_back(Box({ 3, 2, -4.5 }, { 1, 2, 1 }, Lambertian{ { 0, 1, 1 } }));
-    computeShader.shapes.push_back(Box({ -1, 2.5, -2 }, { 1, 1, 1 }, Light{ { 10, 10, 10 } }));
+    computeShader.shapes.push_back(Circle({ -2, 0, -1 }, 0.5, Lambertian{ { 0.5, 1, 1} }));
+    computeShader.shapes.push_back(Box({ -2, 1, -6 }, { 0.5, 0.5, 1 }, Lambertian{ { 1, 0, 0.5} }));
+
     computeShader.updateShapeBuffer();
     unsigned int pixelBuffer;
     glGenBuffers(1, &pixelBuffer);
