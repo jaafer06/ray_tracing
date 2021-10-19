@@ -2,7 +2,7 @@
 #define size 20
 #define inf (1./0.0)
 #define pi 3.1415926535897932384626433832795
-
+#define count 8
 layout(local_size_x = size, local_size_y = size, local_size_z=1) in;
 
 uniform float time;
@@ -24,7 +24,7 @@ layout(std430, binding = 1) buffer cameraBuffer
 };
 
 float random() {
-	seed += 1;
+	seed += 1.78;
 	return fract(sin(dot(seed.xy, vec2(12.9898, 78.233))) * 43758.5453123);
 }
 
@@ -52,6 +52,19 @@ struct Shape {
 	Material material;
 };
 
+struct Material2 {
+	vec3 color;
+	uint type;
+};
+
+struct Shape2 {
+	uint type;
+	vec3 position;
+	float scale;
+	Material2 material;
+};
+
+shared Shape2[count] sharedShapes;
 uniform uint shapeCount;
 
 layout(std430, binding = 0) buffer shapeBuffer
@@ -85,11 +98,10 @@ struct Sphere {
 //	
 //}
 
-
-float hitSphere(in Shape sphere, in Ray ray) {
-	vec3 oc = ray.origin - sphere.transformation[3].xyz;
+float hitSphere(in Shape2 sphere, in Ray ray) {
+	vec3 oc = ray.origin - sphere.position;
 	float b = dot(ray.direction, oc);
-	float c = dot(oc, oc) - pow(sphere.transformation[0][0], 2);
+	float c = dot(oc, oc) - pow(sphere.scale, 2);
 	float discriminant = b * b - c;
 	if (discriminant < 0) {
 		return inf;
@@ -98,13 +110,13 @@ float hitSphere(in Shape sphere, in Ray ray) {
 	}
 };
 
-vec3 sphereNormalAt(in Shape sphere, in vec3 p) {
-	return normalize(p - sphere.transformation[3].xyz);
+vec3 sphereNormalAt(in Shape2 sphere, in vec3 p) {
+	return normalize(p - sphere.position);
 }
 
-float hitBox(in Shape box, in Ray ray) {
-	ray.origin = (box.transformation * vec4(ray.origin, 1)).xyz;
-	ray.direction = (box.transformation * vec4(ray.direction, 1)- box.transformation[3]).xyz;
+float hitBox(in Shape2 box, in Ray ray) {
+	ray.origin =  ray.origin - box.position;
+	//ray.direction = (box.tdsformation * vec4(ray.direction, 1)- box.transformation[3]).xyz;
 
 	vec3 sign = sign(ray.origin);
 	vec3 t = (0.5 - ray.origin * sign)/ (sign * ray.direction);
@@ -121,12 +133,12 @@ float hitBox(in Shape box, in Ray ray) {
 
 };
 
-vec3 boxNormalAt(in Shape box, in vec3 p) {
-	p = (box.transformation * vec4(p, 1)).xyz;
+vec3 boxNormalAt(in Shape2 box, in vec3 p) {
+	p = p - box.position;
 	return normalize(step(vec3(0.499, 0.499, 0.499), abs(p)) * sign(p));
 }
 
-float hit(in Shape shape, in Ray ray) {
+float hit(in Shape2 shape, in Ray ray) {
 	if (shape.type == 0) {
 		return hitSphere(shape, ray);
 	} else if (shape.type == 1) {
@@ -135,7 +147,7 @@ float hit(in Shape shape, in Ray ray) {
 	return -1;
 }
 
-vec3 normalAt(in Shape shape, in vec3 p) {
+vec3 normalAt(in Shape2 shape, in vec3 p) {
 	if (shape.type == 0) {
 		return sphereNormalAt(shape, p);
 	}
@@ -149,7 +161,7 @@ void getClosestShapeIndex(in Ray ray, out float distance, out int index) {
 	distance = inf;
 	index = -1;
 	for (int i = 0; i < shapeCount; ++i) {
-		float t = hit(shapes[i], ray);
+		float t = hit(sharedShapes[i], ray);
 		if (t < 1000 && t > 0.0001 && t < distance) {
 			distance = t;
 			index = i;
@@ -165,20 +177,22 @@ vec3 ray_color(inout Ray ray, uint maxDepth) {
 	for (uint depth = 0; depth < maxDepth; ++depth) {
 		getClosestShapeIndex(ray, distance, index);
 		if (index == -1) {
-			//if (depth == 0) {
-			//	float t = (upperLeft.y - ray.origin.y);
-			//	return (1.0 - t)* vec3(1.0, 1.0, 1.0) + t * vec3(0.5, 0.7, 1.0);
-			//}
-			//result = result / max(result.x, max(result.x, result.z));
-			//return result;
-			return vec3(0, 0, 0);
+			if (depth == 0) {
+				float t = (upperLeft.y - ray.origin.y);
+				return ((1.0 - t)* vec3(1.0, 1.0, 1.0) + t * vec3(0.5, 0.7, 1.0)) * 0.1;
+			}
+
+			float t = (upperLeft.y - ray.origin.y);
+			return ((1.0 - t) * vec3(1.0, 1.0, 1.0) + t * vec3(0.5, 0.7, 1.0))* 0.1 * result;
+			//return vec3(0, 0, 0);
 		}
-		if (shapes[index].material.type == 0) {
-			return result * shapes[index].material.color;
+		//return vec3(1, 0, 0);
+		if (sharedShapes[index].material.type == 0) {
+			return result * sharedShapes[index].material.color;
 		}
 		ray.origin = distance * ray.direction + ray.origin;
-		ray.direction = normalize(normalAt(shapes[index], ray.origin) + randomOnUnitSphere());
-		result = result  * shapes[index].material.color;
+		ray.direction = normalize(normalAt(sharedShapes[index], ray.origin) + randomOnUnitSphere());
+		result = result  * sharedShapes[index].material.color;
 	}
 	
 	return vec3(0, 0, 0);
@@ -186,13 +200,26 @@ vec3 ray_color(inout Ray ray, uint maxDepth) {
 
 
 void main() {
+	if (gl_LocalInvocationID.x < count && gl_LocalInvocationID.y == 0 && gl_LocalInvocationID.z == 0) {
+		Shape2 s;
+		s.position = shapes[gl_LocalInvocationID.x].transformation[3].xyz;
+		s.type = shapes[gl_LocalInvocationID.x].type;
+		Material2 m;
+		m.type = shapes[gl_LocalInvocationID.x].material.type;
+		m.color = shapes[gl_LocalInvocationID.x].material.color;
+		s.material = m;
+		s.scale = shapes[gl_LocalInvocationID.x].transformation[0][0];
+		sharedShapes[gl_LocalInvocationID.x] = s;
+	}
+	barrier();
+
 	vec3 pixelCoordinate = upperLeft + worldStep * gl_WorkGroupID.x * right - worldStep * gl_WorkGroupID.y * up;
 	float gridStep = worldStep / (size+1);
 	vec3 rayOrigin = pixelCoordinate + gridStep * (gl_LocalInvocationID.x+1) * right - gridStep * (gl_LocalInvocationID.y+1) * up;
 	vec3 rayDirection = normalize(rayOrigin - cameraPosition);
 	Ray ray = Ray(rayOrigin, rayDirection);
 
-	vec3 colorf = ray_color(ray, 50);
+	vec3 colorf = ray_color(ray, 10);
 	uvec4 color = uvec4(255 * vec4(colorf, 1.));
 
 	uint index = 4 * (gl_NumWorkGroups.x * gl_NumWorkGroups.y - ((gl_NumWorkGroups.x - gl_WorkGroupID.x) + gl_NumWorkGroups.x * gl_WorkGroupID.y));
