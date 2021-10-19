@@ -1,12 +1,25 @@
 #version 430
-#define size 20
+#define size 10
+#define hitTestConcurrency 10
 #define inf (1./0.0)
 #define pi 3.1415926535897932384626433832795
 
-layout(local_size_x = size, local_size_y = size, local_size_z=1) in;
+layout(local_size_x = size, local_size_y = size, local_size_z = hitTestConcurrency) in;
+
+shared int[hitTestConcurrency] shapeIndex_;
+shared float[hitTestConcurrency] distance_;
+shared int sharedIndex;
+//shared uint[size][size] colors_;
 
 uniform float time;
 vec2 seed = vec2(time) + (vec2(gl_GlobalInvocationID.xy) / vec2(gl_NumWorkGroups.xy));
+
+layout(std430) buffer bb
+{
+	int[hitTestConcurrency] shapeIndexssbo_;
+	float[hitTestConcurrency] distancessbo_;
+	uint[size][size] colorsssbi_;
+};
 
 layout(std430, binding = 2) buffer pixelBuffer
 {
@@ -157,6 +170,21 @@ void getClosestShapeIndex(in Ray ray, out float distance, out int index) {
 	}
 }
 
+void computeShapesDistance(in Ray ray, in uint from, uint to) {
+	float distance = inf;
+	int index = -1;
+	for (uint i = from; i < to; ++i) {
+		float t = hit(shapes[i], ray);
+		if (t < 1000 && t > 0.0001 && t < distance) {
+			distance = t;
+			index = int(i);
+		}
+	}
+	//distancessbo_[gl_LocalInvocationID.z] = distance;
+	sharedIndex = index;
+	//atomicExchange(sharedIndex, index);
+}
+
 vec3 ray_color(inout Ray ray, uint maxDepth) {
 	vec3 result = vec3(1, 1, 1);
 
@@ -185,20 +213,33 @@ vec3 ray_color(inout Ray ray, uint maxDepth) {
 };
 
 
+
 void main() {
+	uint k = shapeCount / hitTestConcurrency;
+	uint rest = shapeCount % hitTestConcurrency;
+	uint load = k + uint(gl_LocalInvocationID.z<rest);
+	uint startIndex = k * gl_LocalInvocationID.z + min(gl_LocalInvocationID.z, rest);
+
 	vec3 pixelCoordinate = upperLeft + worldStep * gl_WorkGroupID.x * right - worldStep * gl_WorkGroupID.y * up;
 	float gridStep = worldStep / (size+1);
 	vec3 rayOrigin = pixelCoordinate + gridStep * (gl_LocalInvocationID.x+1) * right - gridStep * (gl_LocalInvocationID.y+1) * up;
 	vec3 rayDirection = normalize(rayOrigin - cameraPosition);
 	Ray ray = Ray(rayOrigin, rayDirection);
 
-	vec3 colorf = ray_color(ray, 50);
-	uvec4 color = uvec4(255 * vec4(colorf, 1.));
+	for (uint depth = 0; depth < 10; ++depth) {
+		computeShapesDistance(ray, startIndex, startIndex + load);
+		//computeShapesDistance(ray, 0, shapeCount);
+		//computeShapesDistance(ray, 0, 1);
 
-	uint index = 4 * (gl_NumWorkGroups.x * gl_NumWorkGroups.y - ((gl_NumWorkGroups.x - gl_WorkGroupID.x) + gl_NumWorkGroups.x * gl_WorkGroupID.y));
-	atomicAdd(pixels[index], color.x);
-	atomicAdd(pixels[index+1], color.y);
-	atomicAdd(pixels[index+2], color.z);
+	}
+
+	/*vec3 colorf = ray_color(ray, 50);
+	uvec4 color = uvec4(255 * vec4(colorf, 1.));*/
+
+	//uint index = 4 * (gl_NumWorkGroups.x * gl_NumWorkGroups.y - ((gl_NumWorkGroups.x - gl_WorkGroupID.x) + gl_NumWorkGroups.x * gl_WorkGroupID.y));
+	//atomicAdd(pixels[index], color.x);
+	//atomicAdd(pixels[index+1], color.y);
+	//atomicAdd(pixels[index+2], color.z);
 
 	//atomicAdd(pixels[index], uint(shapes[0].transformation[0].x * 255));
 	//atomicAdd(pixels[index + 1], uint(shapes[0].transformation[0].y * 255));
