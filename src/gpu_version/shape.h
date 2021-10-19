@@ -2,6 +2,32 @@
 #include <variant>
 #include <Eigen/Dense>
 
+
+class Shape2 {
+public:
+	static constexpr float maxDistance = 10e3;
+	static constexpr float stepSize = 10e-3;
+	Shape2(unsigned int type, Eigen::Vector3f position) {
+		unsigned int x = min(position[0], maxDistance) / stepSize;
+		unsigned int y = min(position[1], maxDistance) / stepSize;
+		unsigned int z = min(position[2], maxDistance) / stepSize;
+		//std::cout << x << " " << y << " " << z << std::endl;
+		index = 0;
+		index += z;
+		index = index << 20;
+		index += y;
+		index = index << 20;
+		index += x;
+		index = index << 4;
+		index += type;
+
+	}
+private:
+	uint64_t index;
+
+};
+
+
 class Material {
 protected:
 	Material(unsigned int type): type(type) {};

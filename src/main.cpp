@@ -44,7 +44,7 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 
 int main()
 {
-
+    std::cout << sizeof(Shape2) << std::endl;
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 4);
     glfwSetErrorCallback(error_callback);
@@ -74,7 +74,7 @@ int main()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glGenerateMipmap(GL_TEXTURE_2D);
     glBindImageTexture(2, floatTexture, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
-   
+
     GLuint fboId;
     glGenFramebuffers(1, &fboId);
     glBindFramebuffer(GL_FRAMEBUFFER, fboId);
@@ -87,17 +87,17 @@ int main()
     glfwSetCursorPosCallback(window, mouse_callback);
     glfwSetKeyCallback(window, key_callback);
     auto programIds = LoadShaders();
-    RayTracingComputeShader computeShader{camera, programIds.ray_tracing};
+    RayTracingComputeShader computeShader{ camera, programIds.ray_tracing };
     int timeLocation = glGetUniformLocation(programIds.ray_tracing, "time");
-    computeShader.shapes.push_back(Box({ -1, 2.5, -2 }, { 1, 1, 1 }, Light{ { 10, 10, 10 } }));
+    //computeShader.shapes.push_back(Box({ -1, 2.5, -2 }, { 1, 1, 1 }, Light{ { 10, 10, 10 } }));
 
-    computeShader.shapes.push_back(Circle({ 1, 3, -10 }, 1, Lambertian{ { 0, 1, 0 } }));
-    computeShader.shapes.push_back(Circle({ 0, 0, -4 }, 0.5, Lambertian{ { 0.8, 0.8, 0} }));
-    computeShader.shapes.push_back(Circle({ 1.5, 0, -3 }, 1.1, Lambertian{ {  0.5, 0, 0  } }));
-    computeShader.shapes.push_back(Circle({ 0, -94, -40 }, 100, Lambertian{ { 0.3, 0.9, 0.7 } }));
-    computeShader.shapes.push_back(Box({ 3, 2, -4.5 }, { 1, 2, 1 }, Lambertian{ { 0, 1, 1 } }));
-    computeShader.shapes.push_back(Circle({ -2, 0, -1 }, 0.5, Lambertian{ { 0.5, 1, 1} }));
-    computeShader.shapes.push_back(Box({ -2, 1, -6 }, { 0.5, 0.5, 1 }, Lambertian{ { 1, 0, 0.5} }));
+    //computeShader.shapes.push_back(Circle({ 1, 3, -10 }, 1, Lambertian{ { 0, 1, 0 } }));
+    //computeShader.shapes.push_back(Circle({ 0, 0, -4 }, 0.5, Lambertian{ { 0.8, 0.8, 0} }));
+    //computeShader.shapes.push_back(Circle({ 1.5, 0, -3 }, 1.1, Lambertian{ {  0.5, 0, 0  } }));
+    //computeShader.shapes.push_back(Circle({ 0, -94, -40 }, 100, Lambertian{ { 0.3, 0.9, 0.7 } }));
+    //computeShader.shapes.push_back(Box({ 3, 2, -4.5 }, { 1, 2, 1 }, Lambertian{ { 0, 1, 1 } }));
+    //computeShader.shapes.push_back(Circle({ -2, 0, -1 }, 0.5, Lambertian{ { 0.5, 1, 1} }));
+    //computeShader.shapes.push_back(Box({ -2, 1, -6 }, { 0.5, 0.5, 1 }, Lambertian{ { 1, 0, 0.5} }));
 
     computeShader.updateShapeBuffer();
     unsigned int pixelBuffer;
@@ -115,9 +115,24 @@ int main()
     glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT, 1, &workGroupCounts[1]);
     glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT, 2, &workGroupCounts[2]);
 
-    int max;
-    glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT, 0, &max);
     auto start = std::chrono::high_resolution_clock::now();
+
+    std::vector<Shape2> shapes2;
+    shapes2.push_back({ 1, {0, 0, 0} });
+    shapes2.push_back({ 1, {1, 0, 0} });
+    shapes2.push_back({ 1, {2, 1, 0} });
+
+    shapes2.push_back({ 0, {3, 1, 0} });
+    shapes2.push_back({ 0, {0, 5, 0} });
+
+    unsigned int shape2Buffer;
+    glGenBuffers(1, &shape2Buffer);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, shape2Buffer);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(Shape2) * shapes2.size(), shapes2.data(), GL_DYNAMIC_DRAW);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, shape2Buffer);
+    glUseProgram(programIds.ray_tracing);
+    int location = glGetUniformLocation(programIds.ray_tracing, "shapeCount");
+    glUniform1ui(location, unsigned int(shapes2.size()));
 
 
     while (!glfwWindowShouldClose(window))
