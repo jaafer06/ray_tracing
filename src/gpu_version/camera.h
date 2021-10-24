@@ -83,7 +83,8 @@ public:
 	}
 
 	void rotate(float horizontal, float vertical) {
-		const auto rotation = (Eigen::AngleAxisf(horizontal, getUpDirection()) * Eigen::AngleAxisf(vertical, getRightDirection())).toRotationMatrix();
+		auto rotation = Eigen::AngleAxisf(horizontal, getUpDirection()).toRotationMatrix();
+		rotation = (Eigen::AngleAxisf(vertical, rotation*getRightDirection())).toRotationMatrix() * rotation;
 		setUpDirection(rotation * getUpDirection());
 		setRightDirection(rotation * getRightDirection());
 		setCameraDirection(rotation * getCameraDirection());
