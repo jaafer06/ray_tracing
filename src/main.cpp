@@ -34,8 +34,12 @@ static void error_callback(int error, const char* description)
 }
 
 static bool cameraMode = false;
-constexpr static unsigned int width = 1080;
-constexpr static unsigned int height = 720;
+constexpr static unsigned int cameraWidth = 1080;
+constexpr static unsigned int cameraHeight = 720;
+
+constexpr static unsigned int width = cameraWidth;
+constexpr static unsigned int height = cameraHeight;
+
 constexpr static unsigned int channels = 4;
 constexpr static unsigned int pixelCount = width * height * channels;
 static Camera* globalCamera;
@@ -51,7 +55,7 @@ int main()
     if (!glfwInit())
         exit(EXIT_FAILURE);
     // glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    GLFWwindow* window = glfwCreateWindow(width, height, "Ray tracing", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(cameraWidth, cameraHeight, "Ray tracing", NULL, NULL);
     if (!window)
     {
         glfwTerminate();
@@ -90,11 +94,11 @@ int main()
     RayTracingComputeShader computeShader{camera, programIds.ray_tracing};
     int timeLocation = glGetUniformLocation(programIds.ray_tracing, "time");
     computeShader.shapes.push_back(Box({ -1, 2.5, -2 }, { 1, 1, 1 }, Light{ { 10, 10, 10 } }));
+    computeShader.shapes.push_back(Circle({ 0, -94, -40 }, 100, Lambertian{ { 0.3, 0.9, 0.7 } }));
 
     computeShader.shapes.push_back(Circle({ 1, 3, -10 }, 1, Lambertian{ { 0, 1, 0 } }));
     computeShader.shapes.push_back(Circle({ 0, 0, -4 }, 0.5, Lambertian{ { 0.8, 0.8, 0} }));
     computeShader.shapes.push_back(Circle({ 1.5, 0, -3 }, 1.1, Lambertian{ {  0.5, 0, 0  } }));
-    computeShader.shapes.push_back(Circle({ 0, -94, -40 }, 100, Lambertian{ { 0.3, 0.9, 0.7 } }));
     computeShader.shapes.push_back(Box({ 3, 2, -4.5 }, { 1, 2, 1 }, Lambertian{ { 0, 1, 1 } }));
     computeShader.shapes.push_back(Circle({ -2, 0, -1 }, 0.5, Lambertian{ { 0.5, 1, 1} }));
     computeShader.shapes.push_back(Box({ -2, 1, -6 }, { 0.5, 0.5, 1 }, Lambertian{ { 1, 0, 0.5} }));
@@ -129,14 +133,13 @@ int main()
         glUniform1f(timeLocation, time/1000);
 
         computeShader.updateCameraBuffer();
-
         computeShader.compute(width, height, 1);
         glMemoryBarrier(GL_ALL_BARRIER_BITS);
         glUseProgram(programIds.converter);
         glDispatchCompute((GLuint)width, (GLuint)height, 1);
         glMemoryBarrier(GL_ALL_BARRIER_BITS);
 
-        glBlitFramebuffer(0, 0, width, height, 0, 0, width, height, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+        glBlitFramebuffer(0, 0, width, height, 0, 0, cameraWidth, cameraHeight, GL_COLOR_BUFFER_BIT, GL_LINEAR);
         glfwPollEvents();
         glfwSwapBuffers(window);
         auto t2 = std::chrono::high_resolution_clock::now();

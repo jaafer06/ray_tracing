@@ -1,9 +1,11 @@
 #version 430
-#define size 20
+#define size 15
 #define inf (1./0.0)
 #define pi 3.1415926535897932384626433832795
 #define count 8
-layout(local_size_x = size, local_size_y = size, local_size_z=1) in;
+#define hitTestConcurrency 2
+
+layout(local_size_x = size, local_size_y = size, local_size_z= hitTestConcurrency) in;
 
 uniform float time;
 vec2 seed = vec2(time) + (vec2(gl_GlobalInvocationID.xy) / vec2(gl_NumWorkGroups.xy));
@@ -24,9 +26,7 @@ layout(std430, binding = 1) buffer cameraBuffer
 };
 
 float random() {
-	float s1 = fract(sin(dot(seed.xy, vec2(12.9898, 78.233))) * 43758.5453123);
-	float s2 = fract(sin(dot(vec2(s1, seed.x + seed.y), vec2(12.9898, 78.233))) * 43758.5453123);
-	seed = vec2(s1, s2);
+	seed += 1.78;
 	return fract(sin(dot(seed.xy, vec2(12.9898, 78.233))) * 43758.5453123);
 }
 
@@ -39,6 +39,17 @@ vec3 randomOnUnitSphere() {
 	float n2 = sqrt(-2 * log(u1)) * sin(2 * pi * u2);
 	float n3 = sqrt(-2 * log(u3)) * cos(2 * pi * u4);
 	return normalize(vec3(n1, n2, n3));
+}
+
+vec3 randomOnHalfUnitShere(in vec3 normal) {
+	float angle = random() * 2 * np.pi;
+	float r = random();
+	float distance = sqrt(1-r*r);
+	float x = cos(angle) * distance;
+	float y = sin(angle) * distance;
+
+	vec3 result = vec3(-normal[1], normal[0], 0) * x + vec3(0, -normal[2], normal[1]) * y + normal * r;
+	return result;
 }
 
 struct Material {
@@ -84,8 +95,6 @@ struct Sphere {
 	float radius;
 	vec3 color;
 };
-
-float cos, sin;
 
 //bool Scatter(in Material material, in vec3 normal, in vec2 seed, out vec3 rayDirection) {
 //	if (material.type == 0) {
@@ -143,10 +152,6 @@ vec3 boxNormalAt(in Shape2 box, in vec3 p) {
 }
 
 float hit(in Shape2 shape, in Ray ray) {
-	float z = (shape.position.x - ray.origin.x) * -sin + (shape.position.z-ray.origin.z) * cos;
-	if (abs(z) > shape.scale) {
-		return -1;
-	}
 	if (shape.type == 0) {
 		return hitSphere(shape, ray);
 	} else if (shape.type == 1) {
@@ -166,14 +171,9 @@ vec3 normalAt(in Shape2 shape, in vec3 p) {
 }
 
 void getClosestShapeIndex(in Ray ray, out float distance, out int index) {
-	cos = ray.direction.x / length(ray.direction.xz);
-	sin = ray.direction.z / length(ray.direction.xz);
-	//float x = shape.position.x * cos + shape.position.z * sin;
-	//float y = shape.position.y;
-
 	distance = inf;
 	index = -1;
-	for (int i = 0; i < count; ++i) {
+	for (int i = 0; i < shapeCount; ++i) {
 		float t = hit(sharedShapes[i], ray);
 		if (t < 1000 && t > 0.0001 && t < distance) {
 			distance = t;
@@ -211,8 +211,41 @@ vec3 ray_color(inout Ray ray, uint maxDepth) {
 	return vec3(0, 0, 0);
 };
 
+shared Ray[size][size] rays;
+shared int[size][size][hitTestConcurrency] index_;
+shared float[size][size][hitTestConcurrency] distance_;
+shared bool[size][size] stopComputing;
+void computeShapesDistance(in Ray ray, in uint from, uint to) {
+	float distance = inf;
+	int index = -1;
+	for (uint i = from; i < to; ++i) {
+		float t = hit(sharedShapes[i], ray);
+		if (t < 1000 && t > 0.0001 && t < distance) {
+			distance = t;
+			index = int(i);
+		}
+	}
+	distance_[gl_LocalInvocationID.x][gl_LocalInvocationID.y][gl_LocalInvocationID.z] = distance;
+	index_[gl_LocalInvocationID.x][gl_LocalInvocationID.y][gl_LocalInvocationID.z] = index;
+}
+
 
 void main() {
+	vec3 pixelCoordinate = upperLeft + worldStep * gl_WorkGroupID.x * right - worldStep * gl_WorkGroupID.y * up;
+	float gridStep = worldStep / (size + 1);
+	vec3 rayOrigin = pixelCoordinate + gridStep * (gl_LocalInvocationID.x + 1) * right - gridStep * (gl_LocalInvocationID.y + 1) * up;
+	vec3 rayDirection = normalize(rayOrigin - cameraPosition);
+
+	uint k = shapeCount / hitTestConcurrency;
+	uint rest = shapeCount % hitTestConcurrency;
+	uint load = k + uint(gl_LocalInvocationID.z < rest);
+	uint startIndex = k * gl_LocalInvocationID.z + min(gl_LocalInvocationID.z, rest);
+	
+	if (gl_LocalInvocationID.z == 0) {
+		rays[gl_LocalInvocationID.x][gl_LocalInvocationID.y] = Ray(rayOrigin, rayDirection);
+		stopComputing[gl_LocalInvocationID.x][gl_LocalInvocationID.y] = false;
+	}
+
 	if (gl_LocalInvocationID.x < count && gl_LocalInvocationID.y == 0 && gl_LocalInvocationID.z == 0) {
 		Shape2 s;
 		s.position = shapes[gl_LocalInvocationID.x].transformation[3].xyz;
@@ -224,21 +257,58 @@ void main() {
 		s.scale = shapes[gl_LocalInvocationID.x].transformation[0][0];
 		sharedShapes[gl_LocalInvocationID.x] = s;
 	}
+
 	barrier();
 
-	vec3 pixelCoordinate = upperLeft + worldStep * gl_WorkGroupID.x * right - worldStep * gl_WorkGroupID.y * up;
-	float gridStep = worldStep / (size+1);
-	vec3 rayOrigin = pixelCoordinate + gridStep * (gl_LocalInvocationID.x+1) * right - gridStep * (gl_LocalInvocationID.y+1) * up;
-	vec3 rayDirection = normalize(rayOrigin - cameraPosition);
-	Ray ray = Ray(rayOrigin, rayDirection);
+	vec3 result = vec3(1, 1, 1);
+	uint maxDepth = 5;
+	for (uint depth = 0; (depth < maxDepth && !stopComputing[gl_LocalInvocationID.x][gl_LocalInvocationID.y]); ++depth) {
+		computeShapesDistance(rays[gl_LocalInvocationID.x][gl_LocalInvocationID.y], startIndex, startIndex + load);
+		int index = -1;
+		float distance = inf;
+		barrier();
 
-	vec3 colorf = ray_color(ray, 10);
-	uvec4 color = uvec4(255 * vec4(colorf, 1.));
+		if (gl_LocalInvocationID.z == 0) {
 
-	uint index = 4 * (gl_NumWorkGroups.x * gl_NumWorkGroups.y - ((gl_NumWorkGroups.x - gl_WorkGroupID.x) + gl_NumWorkGroups.x * gl_WorkGroupID.y));
-	atomicAdd(pixels[index], color.x);
-	atomicAdd(pixels[index+1], color.y);
-	atomicAdd(pixels[index+2], color.z);
+			for (uint j = 0; j < hitTestConcurrency; ++j) {
+				if (index_[gl_LocalInvocationID.x][gl_LocalInvocationID.y][j] != -1 && distance_[gl_LocalInvocationID.x][gl_LocalInvocationID.y][j] < distance) {
+					distance = distance_[gl_LocalInvocationID.x][gl_LocalInvocationID.y][j];
+					index = index_[gl_LocalInvocationID.x][gl_LocalInvocationID.y][j];
+				}
+			}
+			if (depth == maxDepth-1) {
+				result = vec3(0, 0, 0);
+				stopComputing[gl_LocalInvocationID.x][gl_LocalInvocationID.y] = true;
+			} else if (index == -1) {
+				float t = (upperLeft.y - rays[gl_LocalInvocationID.x][gl_LocalInvocationID.y].origin.y);
+				result = result * ((1.0 - t) * vec3(1.0, 1.0, 1.0) + t * vec3(0.5, 0.7, 1.0)) * 0.5;
+				stopComputing[gl_LocalInvocationID.x][gl_LocalInvocationID.y] = true;
+				//result = vec3(0, 0, 0);
+			} else if (sharedShapes[index].material.type == 0) {
+				result = result * sharedShapes[index].material.color;
+				stopComputing[gl_LocalInvocationID.x][gl_LocalInvocationID.y] = true;
+			} else {
+				rays[gl_LocalInvocationID.x][gl_LocalInvocationID.y].origin = distance * rays[gl_LocalInvocationID.x][gl_LocalInvocationID.y].direction + rays[gl_LocalInvocationID.x][gl_LocalInvocationID.y].origin;
+				rays[gl_LocalInvocationID.x][gl_LocalInvocationID.y].direction = normalize(normalAt(sharedShapes[index], rays[gl_LocalInvocationID.x][gl_LocalInvocationID.y].origin) + randomOnUnitSphere());
+				result = result * sharedShapes[index].material.color;
+			}
+
+		}
+
+		barrier();
+
+	}
+
+
+	if (gl_LocalInvocationID.z == 0) {
+		uvec4 color = uvec4(255 * vec4(result, 1.));
+
+		uint index = 4 * (gl_NumWorkGroups.x * gl_NumWorkGroups.y - ((gl_NumWorkGroups.x - gl_WorkGroupID.x) + gl_NumWorkGroups.x * gl_WorkGroupID.y));
+		atomicAdd(pixels[index], color.x);
+		atomicAdd(pixels[index + 1], color.y);
+		atomicAdd(pixels[index + 2], color.z);
+	}
+
 
 	//atomicAdd(pixels[index], uint(shapes[0].transformation[0].x * 255));
 	//atomicAdd(pixels[index + 1], uint(shapes[0].transformation[0].y * 255));
