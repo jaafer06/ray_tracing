@@ -2,7 +2,7 @@
 #define size 10
 #define inf (1./0.0)
 #define pi 3.1415926535897932384626433832795
-#define count 8
+
 layout(local_size_x = size, local_size_y = size, local_size_z = 1) in;
 
 uniform float time;
@@ -67,6 +67,10 @@ vec3 randomOnHalfUnitShere(in vec3 normal) {
 	return result;
 }
 
+vec3 reflect(in vec3 incoming, in vec3 normal) {
+	return normalize(incoming - 2 * dot(incoming, normal) * normal);
+}
+
 struct Material {
 	vec3 color;
 	uint type;
@@ -89,11 +93,12 @@ struct Shape2 {
 	uint type;
 	vec3 position;
 	float scale;
+	mat3 extraData;
 	Material2 material;
 };
 
-shared Shape2[count] sharedShapes;
 uniform uint shapeCount;
+shared Shape2[20] sharedShapes;
 
 layout(std430, binding = 0) buffer shapeBuffer
 {
@@ -112,21 +117,6 @@ struct Sphere {
 };
 
 //float cos, sin;
-
-//bool Scatter(in Material material, in vec3 normal, in vec2 seed, out vec3 rayDirection) {
-//	if (material.type == 0) {
-//		return false;
-//	} else if (material.type ==1) {
-//		return lambertianScatter(material, normal, seed, rayDirection);
-//	} else if (material.type == 2) {
-//		return metalScatter(material, normal, seed, rayDirection);
-//	}
-//}
-//
-//bool lambertianScatter(in Material material, in vec3 normal, in vec2 seed, out vec3 rayDirection) {
-//	rayDirection = normal + randomOnUnitSphere(seed + 10 * depth);
-//	
-//}
 
 float hitSphere(in Shape2 sphere, in Ray ray) {
 	vec3 oc = ray.origin - sphere.position;
@@ -169,6 +159,32 @@ vec3 boxNormalAt(in Shape2 box, in vec3 p) {
 	return normalize(step(vec3(0.499, 0.499, 0.499), abs(p)) * sign(p));
 }
 
+float hitTriangle(in Shape2 triangle, in Ray ray) {
+	vec3 a = cross(triangle.extraData[1], triangle.extraData[2]);
+	float beta = dot(a, triangle.extraData[0]);
+	float k = (beta - dot(a, ray.origin)) / dot(a, ray.direction);
+	if (k < 0) {
+		return inf;
+	}
+	vec3 pointOnPlane = k * ray.direction + ray.origin - triangle.extraData[0];
+	vec3 v1 = triangle.extraData[1];
+	vec3 v2 = triangle.extraData[2];
+	vec3 m1 = v1 - ((dot(v1, v2) / dot(v2, v2)) * v2);
+	m1 = m1 / dot(m1, v1);
+	vec3 m2 = v2 - ((dot(v1, v2) / dot(v1, v1)) * v1);
+	m2 = m2 / dot(m2, v2);
+
+	float x = dot(pointOnPlane, m1);
+	float y = dot(pointOnPlane, m2);
+	if (x > 0 && y > 0 && x + y < 1) {
+		return k;
+	}
+	return inf;
+};
+
+vec3 triangleNormalAt(in Shape2 triangle, in vec3 p) {
+	return normalize(cross(triangle.extraData[1], triangle.extraData[2]));
+}
 float hit(in Shape2 shape, in Ray ray) {
 	/*float z = (shape.position.x - ray.origin.x) * -sin + (shape.position.z - ray.origin.z) * cos;
 	if (abs(z) > shape.scale) {
@@ -180,6 +196,8 @@ float hit(in Shape2 shape, in Ray ray) {
 	}
 	else if (shape.type == 1) {
 		return hitBox(shape, ray);
+	} else if (shape.type == 2) {
+		return hitTriangle(shape, ray);
 	}
 	return -1;
 }
@@ -190,6 +208,8 @@ vec3 normalAt(in Shape2 shape, in vec3 p) {
 	}
 	else if (shape.type == 1) {
 		return boxNormalAt(shape, p);
+	} else if (shape.type == 2) {
+		return triangleNormalAt(shape, p);
 	}
 	return vec3(1);
 }
@@ -209,6 +229,32 @@ void getClosestShapeIndex(in Ray ray, out float distance, out int index) {
 	}
 }
 
+bool scatter(in Shape2 shape, in out Ray ray, float distance, in out vec3 color) {
+	
+	if (shape.material.type == 0) {
+		color = shape.material.color * color;
+		return false;
+	} else if (shape.material.type == 1) {
+		ray.origin = distance * ray.direction + ray.origin;
+		ray.direction = randomOnHalfUnitShere(normalAt(shape, ray.origin));
+		color = color * shape.material.color;
+		float p = random();
+		return true;
+		//return true;
+	} else if (shape.material.type == 2) {
+		ray.origin = distance * ray.direction + ray.origin;
+		//ray.direction = reflect(ray.origin, ray.direction);
+		ray.direction = reflect(ray.direction, normalAt(shape, ray.origin));
+		color = color * shape.material.color;
+		return true;
+	} else if (shape.material.type == 100) {
+		ray.origin = distance * ray.direction + ray.origin;
+		color = normalAt(shape, ray.origin);
+		return false;
+	}
+	return false;
+}
+
 vec3 ray_color(inout Ray ray, uint maxDepth) {
 
 	vec3 result = vec3(1, 1, 1);
@@ -226,15 +272,17 @@ vec3 ray_color(inout Ray ray, uint maxDepth) {
 			return ((1.0 - t) * vec3(1.0, 1.0, 1.0) + t * vec3(0.5, 0.7, 1.0)) * 0.1 * result;*/
 			return vec3(0, 0, 0);
 		}
+		//ray.origin = distance * ray.direction + ray.origin;
+		//return normalAt(sharedShapes[index], ray.origin);
+		
 		//return sharedShapes[index].material.color;
 		if (sharedShapes[index].material.type == 0) {
 			return result * sharedShapes[index].material.color;
 		}
-		ray.origin = distance * ray.direction + ray.origin;
-		ray.direction = randomOnHalfUnitShere(normalAt(sharedShapes[index], ray.origin));
-		//ray.direction = normalize(normalAt(sharedShapes[index], ray.origin) + randomOnUnitSphere());
 
-		result = result * sharedShapes[index].material.color;
+		if (!scatter(sharedShapes[index], ray, distance, result)) {
+			return result;
+		}
 	}
 
 	return vec3(0, 0, 0);
@@ -242,7 +290,7 @@ vec3 ray_color(inout Ray ray, uint maxDepth) {
 
 
 void main() {
-	if (gl_LocalInvocationID.x < count && gl_LocalInvocationID.y == 0 && gl_LocalInvocationID.z == 0) {
+	if (gl_LocalInvocationID.x < shapeCount && gl_LocalInvocationID.y == 0 && gl_LocalInvocationID.z == 0) {
 		Shape2 s;
 		s.position = shapes[gl_LocalInvocationID.x].transformation[3].xyz;
 		s.type = shapes[gl_LocalInvocationID.x].type;
@@ -251,6 +299,12 @@ void main() {
 		m.color = shapes[gl_LocalInvocationID.x].material.color;
 		s.material = m;
 		s.scale = shapes[gl_LocalInvocationID.x].transformation[0][0];
+		s.extraData = mat3(0);
+		if (s.type == 2) {
+			s.extraData[0] = shapes[gl_LocalInvocationID.x].transformation[0].xyz;
+			s.extraData[1] = shapes[gl_LocalInvocationID.x].transformation[1].xyz - shapes[gl_LocalInvocationID.x].transformation[0].xyz;
+			s.extraData[2] = shapes[gl_LocalInvocationID.x].transformation[2].xyz - shapes[gl_LocalInvocationID.x].transformation[0].xyz;
+		}
 		sharedShapes[gl_LocalInvocationID.x] = s;
 	}
 	barrier();

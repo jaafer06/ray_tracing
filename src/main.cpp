@@ -91,15 +91,19 @@ int main()
     auto programIds = LoadShaders();
     RayTracingComputeShader computeShader{camera, programIds.ray_tracing};
     int timeLocation = glGetUniformLocation(programIds.ray_tracing, "time");
-    computeShader.shapes.push_back(Box({ -1, 4.5, -3.5 }, { 1.5, 1, 1 }, Light{ { 15, 15, 15 } }));
+    computeShader.shapes.push_back(Box({ -1, 4.5, -3.5 }, { 1.5, 1, 1 }, Light{ { 12, 12, 12 } }));
 
     computeShader.shapes.push_back(Circle({ 1, 3, -10 }, 1, Lambertian{ { 0, 1, 0 } }));
+    computeShader.shapes.push_back(Circle({ -1.5, 1.5, -4 }, 0.5, Metal{ { 1, 1, 1} }));
     computeShader.shapes.push_back(Circle({ 0, 1, -4 }, 0.5, Lambertian{ { 0.8, 0.8, 0} }));
+
     computeShader.shapes.push_back(Circle({ 1.5, 1, -3 }, 1.1, Lambertian{ {  0.5, 0, 0  } }));
     computeShader.shapes.push_back(Box({ 0, -50, 0}, {100, 1, 1}, Lambertian{ { 0.3, 0.9, 0.7 } }));
     computeShader.shapes.push_back(Box({ 3, 2, -4.5 }, { 1, 2, 1 }, Lambertian{ { 0, 1, 1 } }));
     computeShader.shapes.push_back(Circle({ -2, 1, -1 }, 0.5, Lambertian{ { 0.5, 1, 1} }));
     computeShader.shapes.push_back(Box({ -2, 1, -6 }, { 0.5, 0.5, 1 }, Lambertian{ { 1, 0, 0.5} }));
+
+    computeShader.shapes.push_back(Triangle({ 0, 0, 0 }, { 1, 1, 0 }, { -1, 1, 0 }, Lambertian{ { 1, 0, 0} }));
 
     computeShader.updateShapeBuffer();
     unsigned int pixelBuffer;
@@ -114,11 +118,11 @@ int main()
     int number_of_samples_location = glGetUniformLocation(programIds.converter, "n_samples");
     while (!glfwWindowShouldClose(window))
     {
-        std::cout << number_of_samples << std::endl;
+        //std::cout << number_of_samples << std::endl;
         auto t1 = std::chrono::high_resolution_clock::now();
         float time = std::chrono::duration<float, std::milli>(t1-start).count();
         glUseProgram(programIds.ray_tracing);
-        glUniform1f(timeLocation, time/1000);
+        glUniform1f(timeLocation, time/10000);
 
         computeShader.updateCameraBuffer();
 

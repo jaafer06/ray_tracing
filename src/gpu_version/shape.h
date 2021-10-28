@@ -33,6 +33,14 @@ public:
 	}
 };
 
+
+class DebugMaterial : public Material {
+public:
+	DebugMaterial(Eigen::Vector3f&& color) : Material(100) {
+		this->color = color;
+	}
+};
+
 class Shape {
 protected:
 	Shape(unsigned int type, Material& material):
@@ -58,5 +66,14 @@ public:
 	Box(Eigen::Vector3f&& translation, Eigen::Vector3f&& sides, Material& material) : Shape(1, material) {
 		transformation.block<3, 3>(0, 0).diagonal() = sides;
 		transformation.block<3, 1>(0, 3) = translation;
+	}
+};
+
+class Triangle : public Shape {
+public:
+	Triangle(Eigen::Vector3f&& p1, Eigen::Vector3f&& p2, Eigen::Vector3f&& p3, Material& material) : Shape(2, material) {
+		transformation.col(0).head(3) = p1;
+		transformation.col(1).head(3) = p2;
+		transformation.col(2).head(3) = p3;
 	}
 };
