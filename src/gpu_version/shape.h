@@ -77,3 +77,33 @@ public:
 		transformation.col(2).head(3) = p3;
 	}
 };
+
+class SimpleTriangle {
+public:
+	SimpleTriangle(Eigen::Vector3f&& p1, Eigen::Vector3f&& p2, Eigen::Vector3f&& p3) {
+		position.head(3) = p1;
+
+		const Eigen::Vector3f v1 = p2 - p1;
+		const Eigen::Vector3f v2 = p3 - p1;
+		const Eigen::Vector3f a = v1.cross(v2).normalized();
+		float beta = a.dot(p1);
+		this->a = a;
+		this->beta = beta;
+
+		Vector3f m1 = v1 - ((v1.dot(v2) / v2.dot(v2)) * v2);
+		m1 = m1 / m1.dot(v1);
+
+		Vector3f m2 = v2 - ((v1.dot(v2) / v1.dot(v1)) * v1);
+		m2 = m2 / m2.dot(v2);
+
+		this->m1.head(3) = m1;
+		this->m2.head(3) = m2;
+
+	}
+private:
+	Eigen::Vector4f position;
+	Eigen::Vector3f a;
+	float beta;
+	Eigen::Vector4f m1;
+	Eigen::Vector4f m2;
+};

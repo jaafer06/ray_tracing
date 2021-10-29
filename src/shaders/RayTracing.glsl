@@ -1,5 +1,5 @@
 #version 430
-#define size 10
+#define size 6
 #define inf (1./0.0)
 #define pi 3.1415926535897932384626433832795
 
@@ -7,6 +7,18 @@ layout(local_size_x = size, local_size_y = size, local_size_z = 1) in;
 
 uniform float time;
 vec3 seed = vec3(time) + (vec3(gl_GlobalInvocationID.xyz) / vec3(gl_NumWorkGroups.xyz));
+struct Triangle {
+	vec3 position;
+	vec3 a;
+	float beta;
+	vec3 m1;
+	vec3 m2;
+};
+
+layout(std430, binding = 3) buffer triangleBuffer
+{
+	Triangle triangles[];
+};
 
 layout(std430, binding = 2) buffer pixelBuffer
 {
@@ -84,21 +96,8 @@ struct Shape {
 	Material material;
 };
 
-struct Material2 {
-	vec3 color;
-	uint type;
-};
-
-struct Shape2 {
-	uint type;
-	vec3 position;
-	float scale;
-	mat3 extraData;
-	Material2 material;
-};
-
 uniform uint shapeCount;
-shared Shape2[20] sharedShapes;
+uniform uint triangleCount;
 
 layout(std430, binding = 0) buffer shapeBuffer
 {
@@ -118,10 +117,13 @@ struct Sphere {
 
 //float cos, sin;
 
-float hitSphere(in Shape2 sphere, in Ray ray) {
-	vec3 oc = ray.origin - sphere.position;
+float hitSphere(in Shape sphere, in Ray ray) {
+	float scale = sphere.transformation[0][0];
+	vec3 position = sphere.transformation[3].xyz;
+
+	vec3 oc = ray.origin - position;
 	float b = dot(ray.direction, oc);
-	float c = dot(oc, oc) - pow(sphere.scale, 2);
+	float c = dot(oc, oc) - pow(scale, 2);
 	float discriminant = b * b - c;
 	if (discriminant < 0) {
 		return inf;
@@ -131,13 +133,15 @@ float hitSphere(in Shape2 sphere, in Ray ray) {
 	}
 };
 
-vec3 sphereNormalAt(in Shape2 sphere, in vec3 p) {
-	return normalize(p - sphere.position);
+vec3 sphereNormalAt(in Shape sphere, in vec3 p) {
+	return normalize(p - sphere.transformation[3].xyz);
 }
 
-float hitBox(in Shape2 box, in Ray ray) {
-	ray.origin = (1/box.scale) * (ray.origin - box.position);
-	ray.direction = (1/box.scale) * ray.direction;
+float hitBox(in Shape box, in Ray ray) {
+	float scale = box.transformation[0][0];
+	vec3 position = box.transformation[3].xyz;
+	ray.origin = (1/scale) * (ray.origin - position);
+	ray.direction = (1/scale) * ray.direction;
 
 	vec3 sign = sign(ray.origin);
 	vec3 t = (0.5 - ray.origin * sign) / (sign * ray.direction);
@@ -154,38 +158,18 @@ float hitBox(in Shape2 box, in Ray ray) {
 
 };
 
-vec3 boxNormalAt(in Shape2 box, in vec3 p) {
-	p = (p - box.position) / (box.scale);
+vec3 boxNormalAt(in Shape box, in vec3 p) {
+	float scale = box.transformation[0][0];
+	vec3 position = box.transformation[3].xyz;
+	p = (p - position) / scale;
 	return normalize(step(vec3(0.499, 0.499, 0.499), abs(p)) * sign(p));
 }
 
-float hitTriangle(in Shape2 triangle, in Ray ray) {
-	vec3 a = cross(triangle.extraData[1], triangle.extraData[2]);
-	float beta = dot(a, triangle.extraData[0]);
-	float k = (beta - dot(a, ray.origin)) / dot(a, ray.direction);
-	if (k < 0) {
-		return inf;
-	}
-	vec3 pointOnPlane = k * ray.direction + ray.origin - triangle.extraData[0];
-	vec3 v1 = triangle.extraData[1];
-	vec3 v2 = triangle.extraData[2];
-	vec3 m1 = v1 - ((dot(v1, v2) / dot(v2, v2)) * v2);
-	m1 = m1 / dot(m1, v1);
-	vec3 m2 = v2 - ((dot(v1, v2) / dot(v1, v1)) * v1);
-	m2 = m2 / dot(m2, v2);
-
-	float x = dot(pointOnPlane, m1);
-	float y = dot(pointOnPlane, m2);
-	if (x > 0 && y > 0 && x + y < 1) {
-		return k;
-	}
-	return inf;
-};
-
-vec3 triangleNormalAt(in Shape2 triangle, in vec3 p) {
-	return normalize(cross(triangle.extraData[1], triangle.extraData[2]));
+vec3 triangleNormalAt(in Triangle triangle, in vec3 rayDirection) {
+	return triangle.a * sign(-dot(rayDirection, triangle.a));
 }
-float hit(in Shape2 shape, in Ray ray) {
+
+float hit(in Shape shape, in Ray ray) {
 	/*float z = (shape.position.x - ray.origin.x) * -sin + (shape.position.z - ray.origin.z) * cos;
 	if (abs(z) > shape.scale) {
 		return -1;
@@ -196,20 +180,33 @@ float hit(in Shape2 shape, in Ray ray) {
 	}
 	else if (shape.type == 1) {
 		return hitBox(shape, ray);
-	} else if (shape.type == 2) {
-		return hitTriangle(shape, ray);
 	}
 	return -1;
 }
 
-vec3 normalAt(in Shape2 shape, in vec3 p) {
+float hitTriangle(in Triangle triangle, in Ray ray) {
+
+	float k = (triangle.beta - dot(triangle.a, ray.origin)) / dot(triangle.a, ray.direction);
+	if (k < 0) {
+		return inf;
+	}
+
+	vec3 pointOnPlane = k * ray.direction + ray.origin - triangle.position;
+	float x = dot(pointOnPlane, triangle.m1);
+	float y = dot(pointOnPlane, triangle.m2);
+
+	if (x > 0 && y > 0 && x + y < 1) {
+		return k;
+	}
+	return inf;
+}
+
+vec3 normalAt(in Shape shape, in vec3 p) {
 	if (shape.type == 0) {
 		return sphereNormalAt(shape, p);
 	}
 	else if (shape.type == 1) {
 		return boxNormalAt(shape, p);
-	} else if (shape.type == 2) {
-		return triangleNormalAt(shape, p);
 	}
 	return vec3(1);
 }
@@ -221,7 +218,21 @@ void getClosestShapeIndex(in Ray ray, out float distance, out int index) {
 	distance = inf;
 	index = -1;
 	for (int i = 0; i < shapeCount; ++i) {
-		float t = hit(sharedShapes[i], ray);
+		float t = hit(shapes[i], ray);
+		if (t < 1000 && t > 0.0001 && t < distance) {
+			distance = t;
+			index = i;
+		}
+	}
+
+}
+
+void getClosestTriangleIndex(in Ray ray, out float distance, out int index) {
+	distance = inf;
+	index = -1;
+
+	for (int i = 0; i < triangleCount; ++i) {
+		float t = hitTriangle(triangles[i], ray);
 		if (t < 1000 && t > 0.0001 && t < distance) {
 			distance = t;
 			index = i;
@@ -229,7 +240,7 @@ void getClosestShapeIndex(in Ray ray, out float distance, out int index) {
 	}
 }
 
-bool scatter(in Shape2 shape, in out Ray ray, float distance, in out vec3 color) {
+bool scatter(in Shape shape, in out Ray ray, float distance, in out vec3 color) {
 	
 	if (shape.material.type == 0) {
 		color = shape.material.color * color;
@@ -238,7 +249,6 @@ bool scatter(in Shape2 shape, in out Ray ray, float distance, in out vec3 color)
 		ray.origin = distance * ray.direction + ray.origin;
 		ray.direction = randomOnHalfUnitShere(normalAt(shape, ray.origin));
 		color = color * shape.material.color;
-		float p = random();
 		return true;
 		//return true;
 	} else if (shape.material.type == 2) {
@@ -260,9 +270,13 @@ vec3 ray_color(inout Ray ray, uint maxDepth) {
 	vec3 result = vec3(1, 1, 1);
 	float distance;
 	int index;
+	float distance_triangle;
+	int index_triangle;
 	for (uint depth = 0; depth < maxDepth; ++depth) {
 		getClosestShapeIndex(ray, distance, index);
-		if (index == -1) {
+		getClosestTriangleIndex(ray, distance_triangle, index_triangle);
+
+		if (index == -1 && index_triangle == -1) {
 			//if (depth == 0) {
 			//	float t = (upperLeft.y - ray.origin.y);
 			//	return ((1.0 - t) * vec3(1.0, 1.0, 1.0) + t * vec3(0.5, 0.7, 1.0)) * 0.1;
@@ -272,15 +286,23 @@ vec3 ray_color(inout Ray ray, uint maxDepth) {
 			return ((1.0 - t) * vec3(1.0, 1.0, 1.0) + t * vec3(0.5, 0.7, 1.0)) * 0.1 * result;*/
 			return vec3(0, 0, 0);
 		}
+
+		if (distance_triangle < distance) {
+			vec3 normal = triangles[index_triangle].a * sign(-dot(ray.direction, triangles[index_triangle].a));
+			ray.origin = distance_triangle * ray.direction + ray.origin;
+			ray.direction = randomOnHalfUnitShere(normal);
+			result = result * vec3(1, 0, 0);
+			continue;
+		}
 		//ray.origin = distance * ray.direction + ray.origin;
-		//return normalAt(sharedShapes[index], ray.origin);
-		
-		//return sharedShapes[index].material.color;
-		if (sharedShapes[index].material.type == 0) {
-			return result * sharedShapes[index].material.color;
+		//return normalAt(shapes[index], ray.origin);
+
+		//return shapes[index].material.color;
+		if (shapes[index].material.type == 0) {
+			return result * shapes[index].material.color;
 		}
 
-		if (!scatter(sharedShapes[index], ray, distance, result)) {
+		if (!scatter(shapes[index], ray, distance, result)) {
 			return result;
 		}
 	}
@@ -290,24 +312,24 @@ vec3 ray_color(inout Ray ray, uint maxDepth) {
 
 
 void main() {
-	if (gl_LocalInvocationID.x < shapeCount && gl_LocalInvocationID.y == 0 && gl_LocalInvocationID.z == 0) {
-		Shape2 s;
-		s.position = shapes[gl_LocalInvocationID.x].transformation[3].xyz;
-		s.type = shapes[gl_LocalInvocationID.x].type;
-		Material2 m;
-		m.type = shapes[gl_LocalInvocationID.x].material.type;
-		m.color = shapes[gl_LocalInvocationID.x].material.color;
-		s.material = m;
-		s.scale = shapes[gl_LocalInvocationID.x].transformation[0][0];
-		s.extraData = mat3(0);
-		if (s.type == 2) {
-			s.extraData[0] = shapes[gl_LocalInvocationID.x].transformation[0].xyz;
-			s.extraData[1] = shapes[gl_LocalInvocationID.x].transformation[1].xyz - shapes[gl_LocalInvocationID.x].transformation[0].xyz;
-			s.extraData[2] = shapes[gl_LocalInvocationID.x].transformation[2].xyz - shapes[gl_LocalInvocationID.x].transformation[0].xyz;
-		}
-		sharedShapes[gl_LocalInvocationID.x] = s;
-	}
-	barrier();
+	//if (gl_LocalInvocationID.x < shapeCount && gl_LocalInvocationID.y == 0 && gl_LocalInvocationID.z == 0) {
+	//	shape s;
+	//	s.position = shapes[gl_LocalInvocationID.x].transformation[3].xyz;
+	//	s.type = shapes[gl_LocalInvocationID.x].type;
+	//	Material2 m;
+	//	m.type = shapes[gl_LocalInvocationID.x].material.type;
+	//	m.color = shapes[gl_LocalInvocationID.x].material.color;
+	//	s.material = m;
+	//	s.scale = shapes[gl_LocalInvocationID.x].transformation[0][0];
+	//	s.extraData = mat3(0);
+	//	if (s.type == 2) {
+	//		s.extraData[0] = shapes[gl_LocalInvocationID.x].transformation[0].xyz;
+	//		s.extraData[1] = shapes[gl_LocalInvocationID.x].transformation[1].xyz - shapes[gl_LocalInvocationID.x].transformation[0].xyz;
+	//		s.extraData[2] = shapes[gl_LocalInvocationID.x].transformation[2].xyz - shapes[gl_LocalInvocationID.x].transformation[0].xyz;
+	//	}
+	//	sharedShapes[gl_LocalInvocationID.x] = s;
+	//}
+	//barrier();
 
 	vec3 pixelCoordinate = upperLeft + worldStep * gl_WorkGroupID.x * right - worldStep * gl_WorkGroupID.y * up;
 	float gridStep = worldStep / (size + 1);
@@ -319,6 +341,7 @@ void main() {
 	uvec4 color = uvec4(255 * vec4(colorf, 1.));
 
 	uint index = 4 * (gl_NumWorkGroups.x * gl_NumWorkGroups.y - ((gl_NumWorkGroups.x - gl_WorkGroupID.x) + gl_NumWorkGroups.x * gl_WorkGroupID.y));
+	
 	atomicAdd(pixels[index], color.x);
 	atomicAdd(pixels[index + 1], color.y);
 	atomicAdd(pixels[index + 2], color.z);

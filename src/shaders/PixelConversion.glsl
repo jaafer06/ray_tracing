@@ -1,5 +1,5 @@
 #version 430
-#define totalSize 100
+#define totalSize 36
 layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 layout(binding = 2, rgba32f) uniform image2D result;
 layout(std430, binding = 2) buffer pixelBuffer

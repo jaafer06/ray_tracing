@@ -24,6 +24,11 @@ public:
 		glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, shapesBuffer);
 		glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0); // unbind
 
+		glGenBuffers(1, &triangleBuffer);
+		glBindBuffer(GL_SHADER_STORAGE_BUFFER, triangleBuffer);
+		glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(SimpleTriangle) * triangles.size(), triangles.data(), GL_DYNAMIC_DRAW);
+		glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, triangleBuffer);
+		glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0); // unbind
 	}
 
 	void updateCameraBuffer() {
@@ -42,12 +47,21 @@ public:
 		glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(Shape) * shapes.size(), shapes.data(), GL_DYNAMIC_DRAW);
 		int location = glGetUniformLocation(programID, "shapeCount");
 		glUniform1ui(location, unsigned int(shapes.size()));
+
+
+		glBindBuffer(GL_SHADER_STORAGE_BUFFER, triangleBuffer);
+		glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(SimpleTriangle) * triangles.size(), triangles.data(), GL_DYNAMIC_DRAW);
+
+		location = glGetUniformLocation(programID, "triangleCount");
+		glUniform1ui(location, unsigned int(triangles.size()));
 	}
 
 	std::vector<Shape> shapes;
+	std::vector<SimpleTriangle> triangles;
 
 private:
 	Camera& camera;
+	unsigned int triangleBuffer;
 	unsigned int shapesBuffer;
 	unsigned int cameraPositionBuffer;
 };

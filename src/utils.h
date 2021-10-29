@@ -12,6 +12,20 @@ static std::normal_distribution<float> normalDistribution{ 0, 1 };
 static std::uniform_real_distribution<float> uniformDistribution{ 0, pi };
 
 template<typename T, unsigned int n, unsigned m>
+std::ostream& operator<<(std::ostream& out, const Matrix<T, n, m>& other)
+{
+    std::fixed(out);
+    for (int i = 0; i < other.rows(); i++) {
+        out << other(i, 0);
+        for (int j = 1; j < other.cols(); j++) {
+            out << "\t" << other(i, j);
+        }
+        out << std::endl;
+    }
+    return out;
+}
+
+template<typename T, unsigned int n, unsigned m>
 std::istream& operator>>(std::istream& in, Matrix<T, n, m>& other)
 {
     for (unsigned int i = 0; i < other.rows(); i++)
