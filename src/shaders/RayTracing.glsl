@@ -1,5 +1,5 @@
 #version 430
-#define size 6
+#define size 10
 #define inf (1./0.0)
 #define pi 3.1415926535897932384626433832795
 
@@ -115,8 +115,6 @@ struct Sphere {
 	vec3 color;
 };
 
-//float cos, sin;
-
 float hitSphere(in Shape sphere, in Ray ray) {
 	float scale = sphere.transformation[0][0];
 	vec3 position = sphere.transformation[3].xyz;
@@ -155,7 +153,6 @@ float hitBox(in Shape box, in Ray ray) {
 		}
 	}
 	return minDistance;
-
 };
 
 vec3 boxNormalAt(in Shape box, in vec3 p) {
@@ -170,11 +167,6 @@ vec3 triangleNormalAt(in Triangle triangle, in vec3 rayDirection) {
 }
 
 float hit(in Shape shape, in Ray ray) {
-	/*float z = (shape.position.x - ray.origin.x) * -sin + (shape.position.z - ray.origin.z) * cos;
-	if (abs(z) > shape.scale) {
-		return -1;
-	}*/
-
 	if (shape.type == 0) {
 		return hitSphere(shape, ray);
 	}
@@ -212,8 +204,6 @@ vec3 normalAt(in Shape shape, in vec3 p) {
 }
 
 void getClosestShapeIndex(in Ray ray, out float distance, out int index) {
-	/*cos = ray.direction.x / length(ray.direction.xz);
-	sin = ray.direction.z / length(ray.direction.xz);*/
 
 	distance = inf;
 	index = -1;
@@ -250,10 +240,8 @@ bool scatter(in Shape shape, in out Ray ray, float distance, in out vec3 color) 
 		ray.direction = randomOnHalfUnitShere(normalAt(shape, ray.origin));
 		color = color * shape.material.color;
 		return true;
-		//return true;
 	} else if (shape.material.type == 2) {
 		ray.origin = distance * ray.direction + ray.origin;
-		//ray.direction = reflect(ray.origin, ray.direction);
 		ray.direction = reflect(ray.direction, normalAt(shape, ray.origin));
 		color = color * shape.material.color;
 		return true;
@@ -277,13 +265,6 @@ vec3 ray_color(inout Ray ray, uint maxDepth) {
 		getClosestTriangleIndex(ray, distance_triangle, index_triangle);
 
 		if (index == -1 && index_triangle == -1) {
-			//if (depth == 0) {
-			//	float t = (upperLeft.y - ray.origin.y);
-			//	return ((1.0 - t) * vec3(1.0, 1.0, 1.0) + t * vec3(0.5, 0.7, 1.0)) * 0.1;
-			//}
-
-			/*float t = (upperLeft.y - ray.origin.y);
-			return ((1.0 - t) * vec3(1.0, 1.0, 1.0) + t * vec3(0.5, 0.7, 1.0)) * 0.1 * result;*/
 			return vec3(0, 0, 0);
 		}
 
@@ -294,10 +275,6 @@ vec3 ray_color(inout Ray ray, uint maxDepth) {
 			result = result * vec3(1, 0, 0);
 			continue;
 		}
-		//ray.origin = distance * ray.direction + ray.origin;
-		//return normalAt(shapes[index], ray.origin);
-
-		//return shapes[index].material.color;
 		if (shapes[index].material.type == 0) {
 			return result * shapes[index].material.color;
 		}
@@ -312,28 +289,11 @@ vec3 ray_color(inout Ray ray, uint maxDepth) {
 
 
 void main() {
-	//if (gl_LocalInvocationID.x < shapeCount && gl_LocalInvocationID.y == 0 && gl_LocalInvocationID.z == 0) {
-	//	shape s;
-	//	s.position = shapes[gl_LocalInvocationID.x].transformation[3].xyz;
-	//	s.type = shapes[gl_LocalInvocationID.x].type;
-	//	Material2 m;
-	//	m.type = shapes[gl_LocalInvocationID.x].material.type;
-	//	m.color = shapes[gl_LocalInvocationID.x].material.color;
-	//	s.material = m;
-	//	s.scale = shapes[gl_LocalInvocationID.x].transformation[0][0];
-	//	s.extraData = mat3(0);
-	//	if (s.type == 2) {
-	//		s.extraData[0] = shapes[gl_LocalInvocationID.x].transformation[0].xyz;
-	//		s.extraData[1] = shapes[gl_LocalInvocationID.x].transformation[1].xyz - shapes[gl_LocalInvocationID.x].transformation[0].xyz;
-	//		s.extraData[2] = shapes[gl_LocalInvocationID.x].transformation[2].xyz - shapes[gl_LocalInvocationID.x].transformation[0].xyz;
-	//	}
-	//	sharedShapes[gl_LocalInvocationID.x] = s;
-	//}
-	//barrier();
 
 	vec3 pixelCoordinate = upperLeft + worldStep * gl_WorkGroupID.x * right - worldStep * gl_WorkGroupID.y * up;
 	float gridStep = worldStep / (size + 1);
-	vec3 rayOrigin = pixelCoordinate + gridStep * (gl_LocalInvocationID.x + 1) * right - gridStep * (gl_LocalInvocationID.y + 1) * up;
+	//vec3 rayOrigin = pixelCoordinate + gridStep * (gl_LocalInvocationID.x + 1) * right - gridStep * (gl_LocalInvocationID.y + 1) * up;
+	vec3 rayOrigin = pixelCoordinate + worldStep * random() * right - worldStep * random() * up;
 	vec3 rayDirection = normalize(rayOrigin - cameraPosition);
 	Ray ray = Ray(rayOrigin, rayDirection);
 
@@ -345,9 +305,4 @@ void main() {
 	atomicAdd(pixels[index], color.x);
 	atomicAdd(pixels[index + 1], color.y);
 	atomicAdd(pixels[index + 2], color.z);
-
-	//atomicAdd(pixels[index], uint(shapes[0].transformation[0].x * 255));
-	//atomicAdd(pixels[index + 1], uint(shapes[0].transformation[0].y * 255));
-	//atomicAdd(pixels[index + 2], uint(shapes[0].transformation[0].z * 255));
-
 }

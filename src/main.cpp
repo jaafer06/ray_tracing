@@ -92,36 +92,34 @@ int main()
     auto programIds = LoadShaders();
     RayTracingComputeShader computeShader{camera, programIds.ray_tracing};
     int timeLocation = glGetUniformLocation(programIds.ray_tracing, "time");
-    computeShader.shapes.push_back(Box({ -1, 4.5, -2 }, { 1.5, 1, 1 }, Light{ { 12, 12, 12 } }));
+    computeShader.shapes.push_back(Box({ -1, 12, -2 }, { 10, 1, 1 }, Light{ { 1.5, 1.5, 1.5 } }));
+    //computeShader.shapes.push_back(Circle({ 3, 4.5, -2 }, 1.5, Light{ { 1, 1, 1 } }));
 
     computeShader.shapes.push_back(Circle({ 1, 3, -10 }, 1, Lambertian{ { 0, 1, 0 } }));
     computeShader.shapes.push_back(Circle({ -1.5, 1.5, -4 }, 0.5, Metal{ { 1, 1, 1} }));
     computeShader.shapes.push_back(Circle({ 0, 1, -4 }, 0.5, Lambertian{ { 0.8, 0.8, 0} }));
 
-    //computeShader.shapes.push_back(Circle({ 1.5, 1, -3 }, 1.1, Lambertian{ {  0.5, 0, 0  } }));
+    computeShader.shapes.push_back(Circle({ 1.5, 1, -3 }, 1.1, Lambertian{ {  1, 0, 0  } }));
     computeShader.shapes.push_back(Box({ 0, -50, 0}, {100, 1, 1}, Lambertian{ { 0.3, 0.9, 0.7 } }));
     computeShader.shapes.push_back(Box({ 3, 2, -4.5 }, { 1, 2, 1 }, Lambertian{ { 0, 1, 1 } }));
     computeShader.shapes.push_back(Circle({ -2, 1, -1 }, 0.5, Lambertian{ { 0.5, 1, 1} }));
     computeShader.shapes.push_back(Box({ -2, 1, -6 }, { 0.5, 0.5, 1 }, Lambertian{ { 1, 0, 0.5} }));
 
-    //computeShader.triangles.push_back(SimpleTriangle{ { 0, 0, 0 }, { 1, 1, 0 }, { -1, 1, 0 } });
-    //computeShader.triangles.push_back(SimpleTriangle{ { 0, 0, 0 }, { 0, 0, 0 }, { 0, 0, 1 } });
-
-    SimpleMesh mesh;
-    mesh.loadMesh("../src/meshes/Bunny-LowPoly.off");
-    mesh.normalize();
+    //SimpleMesh mesh;
+    //mesh.loadMesh("../src/meshes/Bunny-LowPoly.off");
+    //mesh.normalize();
     //mesh.resize();
-    mesh.transform(Eigen::AngleAxisf(-pi / 2, Vector3f{ 1, 0, 0 }).toRotationMatrix(), {0.5, 0.7, -2});
-    for (unsigned int index = 0; index < mesh.getTriangles().size(); ++index) {
-        auto& triangle = mesh.getTriangles()[index];
-        auto& v0 = mesh.getVertices()[triangle.idx0].position.head(3);
-        auto& v1 = mesh.getVertices()[triangle.idx1].position.head(3);
-        auto& v2 = mesh.getVertices()[triangle.idx2].position.head(3);
-        //std::cout << v0 << std::endl << "---" << std::endl;
-        //std::cout << v1 << std::endl << "---" << std::endl;
-        //std::cout << v2 << std::endl << "---" << std::endl;
-        computeShader.triangles.push_back(SimpleTriangle(v0, v1, v2));
-    }
+    //mesh.transform(0.5 *Eigen::AngleAxisf(-pi / 2, Vector3f{ 1, 0, 0 }).toRotationMatrix(), {0.5, 0.7, -2});
+    //for (unsigned int index = 0; index < mesh.getTriangles().size(); ++index) {
+    //    auto& triangle = mesh.getTriangles()[index];
+    //    auto& v0 = mesh.getVertices()[triangle.idx0].position.head(3);
+    //    auto& v1 = mesh.getVertices()[triangle.idx1].position.head(3);
+    //    auto& v2 = mesh.getVertices()[triangle.idx2].position.head(3);
+    //    //std::cout << v0 << std::endl << "---" << std::endl;
+    //    //std::cout << v1 << std::endl << "---" << std::endl;
+    //    //std::cout << v2 << std::endl << "---" << std::endl;
+    //    computeShader.triangles.push_back(SimpleTriangle(v0, v1, v2));
+    //}
 
     computeShader.updateShapeBuffer();
     unsigned int pixelBuffer;
